@@ -5,8 +5,12 @@ from __future__ import with_statement
 import os
 import sys
 import errno
-
+import stat
+from time import time
+from errno import ENOENT
 from fuse import FUSE, FuseOSError, Operations
+
+from gmail import Gmail
 
 mock_emails = [
     {
@@ -35,6 +39,7 @@ This message was sent by Duke United Testing via Duke Notify. To change your del
 
 class Passthrough(Operations):
     def __init__(self, root):
+        self.gmail_client = Gmail()
         self.root = root
 
     # Helpers
@@ -52,8 +57,8 @@ class Passthrough(Operations):
     def access(self, path, mode):
         print("access")
         full_path = self._full_path(path)
-        if not os.access(full_path, mode):
-            raise FuseOSError(errno.EACCES)
+        # if not os.access(full_path, mode):
+        #     raise FuseOSError(errno.EACCES)
 
     def chmod(self, path, mode):
         print("chmod")
@@ -111,7 +116,6 @@ class Passthrough(Operations):
 
     def statfs(self, path):
         print("statfs")
-
         full_path = self._full_path(path)
         stv = os.statvfs(full_path)
         return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
@@ -189,14 +193,17 @@ class Passthrough(Operations):
 
         return self.flush(path, fh)
 
-def data_init(root):
-    for email in mock_emails:
-        with open(os.path.join(root, email["id"] + ".html"), "w+") as f:
-            f.write(email["raw"])
+
+# def data_init(root):
+#     for email in mock_emails:
+#         with open(os.path.join(root, email["id"] + ".html"), "w+") as f:
+#             f.write(email["raw"])
+
 
 def main(mountpoint, root):
-    data_init(root)
+    # data_init(root)
     FUSE(Passthrough(root), mountpoint, nothreads=True, foreground=True)
+
 
 if __name__ == '__main__':
     main(sys.argv[2], sys.argv[1])
