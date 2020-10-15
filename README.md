@@ -24,3 +24,6 @@ Todo:
     - [X] support `cat`: request message in MIME, display full text in parts
     - [ ] support basic sending
 
+
+#### References:
+1. python fuse sample: https://github.com/skorokithakis/python-fuse-sample
