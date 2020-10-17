@@ -4,6 +4,8 @@ import os.path
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+import gmail_func.send_email
+import email_draft_parse
 import googleapiclient.errors as google_error
 import mimetypes
 from email.mime.text import MIMEText
@@ -132,6 +134,14 @@ class Gmail():
 
         return metadata_dict, subject_list
         # message = get_mime_message(service, user_id, messages['messages'][1]['id'])
+
+    def send_email(self, draft):
+        vals = email_draft_parse.extract_fields(draft)
+        if len(vals) == 4:
+            email_draft = gmail_func.send_email.create_message(*vals)
+        else:
+            email_draft = gmail_func.send_email.create_message_with_attachment(*vals)
+        gmail_func.send_email.send_message(self.service, self.user_id, email_draft)
 
 
 def test():
