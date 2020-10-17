@@ -19,10 +19,11 @@ Todo:
 - Bug
     - [X] Handle emails of duplicate subject line (stuck..for now just keep one...unacceptable)
     - [X] Email subject as filenames has quotation marks, need to remove(should be easy to figure out...but i stuck again)
+    - [ ] User can copy a folder into "send" directory, we should not allow user to do that
 
 - Next step
     - [X] support `cat`: request message in MIME, display full text in parts
-    - [ ] support basic sending
+    - [X] support basic sending
 
 
 #### References:
