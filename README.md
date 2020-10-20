@@ -4,7 +4,9 @@ filesystem based interface to interact with gmail
 
 ## Getting Started:
 clone the repository with `git clone git@github.com:lucastliu/gmailfs.git`
+
 Navigate to the repository on your computer `cd gmailfs`
+
 install dependencies `pip3 install -r requirements.txt`
 
 Make two directories inside gmailfs repository root
@@ -49,6 +51,7 @@ To send the email, move the email draft to the ~/client/send directory
 If the email is successfully sent, the email draft in the ~/client/send will be deleted and you can find the sent email in the ~/client/sent directory. 
 
 If the format of the draft is incorrect, the email draft will be deleted, and no action will be taken.
+
 To check the email you just sent, change to the ~/client/sent directory
 `cd ~/client/sent`
 `ls`
