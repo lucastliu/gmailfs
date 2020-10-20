@@ -40,13 +40,13 @@ First, draft an email by creating a file in the root of the gmailfs repository
 
 Example:
 `vim emaildraftname`
-start with the structure shown below
+start with the structure shown below. Note: You must have a newline after the messages line.
 
 ```
 Subject: email example
 Sender: me
 To: whoever.it.is@duke.edu
-Messages: put-whatever-text-you-want-to-write-here-but-you-cannot-start-a-new-line
+Message: put-whatever-text-you-want-to-write-here-but-you-cannot-start-a-new-line
 
 ```
 
@@ -57,7 +57,7 @@ If the email is successfully sent, the email draft in the ~/client/send will be 
 If the format of the draft is incorrect, the email draft will be deleted, and no action will be taken.
 
 To check the email you just sent, change to the ~/client/sent directory
-`cd ~/client/sent`
+`cd /client/sent`
 `ls`
 
 ### Close gmailfs
