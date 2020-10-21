@@ -10,6 +10,7 @@ Navigate to the repository on your computer `cd gmailfs`
 
 install dependencies
 `sudo pip3 --upgrade install -r requirements.txt`
+
 `sudo pip3 install -r requirements.txt`
 
 
@@ -22,6 +23,12 @@ mkdir cache
 Run gmailfs `python3 ./gmailfs.py ./cache ./client`
 
 Because currently the gmailfs runs in the foreground, we need to change to another terminal window. After the gmailfs mounts to the ~/client directory, open a new terminal window and again navigate to gmailfs
+
+It may be necessary to run your new terminal as an admin
+
+`sudo -i`
+
+[input your credentials]
 
 ## Usage
 
