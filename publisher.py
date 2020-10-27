@@ -1,7 +1,7 @@
 from google.cloud import pubsub_v1
 import os
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "CREDENTIAL_PATH"
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "project_key_example.json"
 # TODO(developer)
 project_id = "crucial-matter-292203"
 topic_id = "hello_topic"
@@ -13,6 +13,8 @@ topic_path = publisher.topic_path(project_id, topic_id)
 
 for n in range(1, 10):
     data = "Message number {}".format(n)
+    print("TRY")
+    print(n)
     # Data must be a bytestring
     data = data.encode("utf-8")
     # When you publish a message, the client returns a future.

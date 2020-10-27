@@ -4,7 +4,7 @@ from google.cloud import pubsub_v1
 
 import os
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "CREDENTIAL_PATH"
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "project_key_example.json"
 # TODO(developer)
 project_id = "crucial-matter-292203"
 subscription_id = "sub_one"
