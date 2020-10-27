@@ -55,7 +55,10 @@ start with the structure shown below. Note: You must have a newline after the me
 Subject: email example
 Sender: me
 To: whoever.it.is@duke.edu
-Message: put-whatever-text-you-want-to-write-here-but-you-cannot-start-a-new-line
+Message:
+first line,
+second line
+third line. 
 
 ```
 
