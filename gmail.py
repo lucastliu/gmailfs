@@ -122,7 +122,7 @@ class Gmail():
                     break
 
             # for stat
-            meta['date'] = int(m_meta['internalDate'])
+            meta['date'] = int(m_meta['internalDate']) / 1000 #gmail's timestamp is in millisecond, so divide by 1000
             meta['size'] = int(m_meta['sizeEstimate'])
 
             # unique identifier, for fetch full text
@@ -155,7 +155,7 @@ def test():
         m_mime = client.get_mime_message(m["id"])
         email_list.append(m_meta)
         email_mime.append(m_mime)
-
+        
     print(email_list)
 
 
