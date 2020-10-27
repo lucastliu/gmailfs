@@ -37,10 +37,12 @@ View a list of available emails in the inbox
 `cd client/inbox`
 `ls` 
 
-You should see a list of emails
+You should see a list of directories, and they are named by subject and email id
 
 Read the raw / full MIME content of a specific email
-`cat email-subject-plus-email-id`
+`cd email-subject-plus-email-id`
+`cat raw`
+`cat html`
 
 ### Send an Email
 First, draft an email by creating a file in the root of the gmailfs repository
