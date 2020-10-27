@@ -9,8 +9,12 @@ import os
 import shutil
 import sys
 
+from multiprocessing import Process, Lock
+
+
 # Reference: the basic code in this file is adopted from this python fuse
 # sample: https://github.com/skorokithakis/python-fuse-sample
+
 
 class GmailFS(Operations):
     def __init__(self, root):
@@ -54,25 +58,26 @@ class GmailFS(Operations):
         print("chown")
         full_path = self._full_path(path)
         return os.chown(full_path, uid, gid)
-    
+
     class PATH_TYPE(Enum):
         EMAIL_FOLDER = 1
         EMAIL_CONTENT = 2
 
     def path_type(self, path):
-        if '/inbox/' in path == False:
+        if not '/inbox/' in path:
             return False
         path_tuple = path.split('/')
         if len(path_tuple) == 3:
             return GmailFS.PATH_TYPE.EMAIL_FOLDER
         if len(path_tuple) == 4:
             return GmailFS.PATH_TYPE.EMAIL_CONTENT
-            
+
     def getattr(self, path, fh=None):
         st = dict()
         if path == '/' or path == '/inbox':
             st['st_mode'] = stat.S_IFDIR | 0o774
-        # attr for each email folder e.g. ['', 'inbox', 'Basic Email Test ID 17519d916b1681af']
+        # attr for each email folder e.g. 
+        # ['', 'inbox', 'Basic Email Test ID 17519d916b1681af']
         elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_FOLDER:
             subject = path.split('/inbox/')[1]
             if subject not in self.metadata_dict:
@@ -254,7 +259,8 @@ class GmailFS(Operations):
                     elif os.path.isdir(f_path):
                         shutil.rmtree(f_path)
                 except Exception as delete_err:
-                    print("Error: could not empty send folder, reason: " + str(delete_err))
+                    print(
+                        "Error: could not empty send folder, reason: " + str(delete_err))
             print("Error: " + str(send_err))
         return os.close(fh)
 
@@ -263,5 +269,27 @@ class GmailFS(Operations):
         return self.flush(path, fh)
 
 
+def func1(lock):
+    """
+    Example function that uses a lock
+    """
+    print('func1: starting')
+    for i in range(10000):
+        if i % 1000 == 0:
+            lock.acquire()
+            print("STUFF")
+            lock.release()
+    print('func1: finishing')
+
+
 if __name__ == '__main__':
-    FUSE(GmailFS(sys.argv[1]), sys.argv[2], nothreads=True, foreground=True)
+    lock = Lock()
+    G = GmailFS(sys.argv[1])
+    p1 = Process(target=FUSE, args=(G, sys.argv[2]))
+    p1.start()
+    p2 = Process(target=G.gmail_client.listen_for_updates, args=(lock,))
+    #p2 = Process(target=func1, args=(lock,))
+    p2.start()
+    p1.join()
+    p2.join()
+    # FUSE(GmailFS(sys.argv[1]), sys.argv[2], nothreads=True, foreground=True)

@@ -17,6 +17,16 @@ from email.mime.base import MIMEBase
 import base64
 import email
 
+from concurrent.futures import TimeoutError
+from google.cloud import pubsub_v1
+from multiprocessing import Process, Lock
+
+import ast
+
+import os
+
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "project_key.json"
+
 # based on implementation from https://blog.mailtrap.io/send-emails-with-gmail-api/#Step_9_Read_a_specific_email_from_your_inbox
 
 # If modifying these scopes, delete the file token.pickle.
@@ -50,6 +60,9 @@ class Gmail():
 
         self.service = build('gmail', 'v1', credentials=creds)
         self.user_id = "me"
+
+        self.start_autoupdate_service()
+
 
     ### util functions
     def get_messages(self, label=None):
@@ -143,20 +156,63 @@ class Gmail():
             email_draft = gmail_func.send_email.create_message_with_attachment(*vals)
         gmail_func.send_email.send_message(self.service, self.user_id, email_draft)
 
+    def start_autoupdate_service(self):
+        request = {
+            'labelIds': ['INBOX'],
+            'topicName': 'projects/quickstart-1602387234428/topics/autoupdate'
+        }
+
+        response = self.service.users().watch(userId='me', body=request).execute()
+
+        print(response)
+
+    def listen_for_updates(self, lock):
+        project_id = "quickstart-1602387234428"
+        subscription_id = "update_sub"
+        subscriber = pubsub_v1.SubscriberClient()
+        # The `subscription_path` method creates a fully qualified identifier
+        # in the form `projects/{project_id}/subscriptions/{subscription_id}`
+        subscription_path = subscriber.subscription_path(project_id,
+                                                         subscription_id)
+        # https://developers.google.com/gmail/api/guides/sync#partial
+        # TODO: use historyId, call history.list(), get all changes
+        def callback(message):
+            lock.acquire()
+            print(f"Received {message}.")
+            data = ast.literal_eval(message.data.decode("utf-8"))
+            print(data['historyId'])
+            message.ack()
+            lock.release()
+
+        streaming_pull_future = subscriber.subscribe(subscription_path,
+                                                     callback=callback)
+        print(f"Listening for messages on {subscription_path}..\n")
+
+        # Wrap subscriber in a 'with' block to automatically call close() when done.
+        with subscriber:
+            try:
+                # When `timeout` is not set, result() will block indefinitely,
+                # unless an exception is encountered first.
+                streaming_pull_future.result()
+            except TimeoutError:
+                streaming_pull_future.cancel()
+
 
 def test():
     client = Gmail()
-    raw = client.get_messages()
-    messages = raw['messages']
-    email_list = []
-    email_mime = []
-    for m in messages:
-        m_meta = client.get_meta_message(m['id'])
-        m_mime = client.get_mime_message(m["id"])
-        email_list.append(m_meta)
-        email_mime.append(m_mime)
-        
-    print(email_list)
+    lock = Lock()
+    client.listen_for_updates(lock)
+    # raw = client.get_messages()
+    # messages = raw['messages']
+    # email_list = []
+    # email_mime = []
+    # for m in messages:
+    #     m_meta = client.get_meta_message(m['id'])
+    #     m_mime = client.get_mime_message(m["id"])
+    #     email_list.append(m_meta)
+    #     email_mime.append(m_mime)
+
+    # print(email_list)
 
 
 if __name__ == '__main__':
