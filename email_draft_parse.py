@@ -16,8 +16,8 @@ def extract_message(s):
 
 
 def extract_fields(draft):
-    fields = ["Sender", "To", "Subject", "File"]
-    vals = []
+    fields = ["To", "Subject", "File"]
+    vals = ["me"] # The sender is set to me by default, now the user doesn't need to set Sender
     for f in fields:
         val = extract_field(draft, f)
         if val != "":
