@@ -11,6 +11,8 @@ import sys
 
 from multiprocessing import Process, Lock
 
+import time as TT
+
 
 # Reference: the basic code in this file is adopted from this python fuse
 # sample: https://github.com/skorokithakis/python-fuse-sample
@@ -285,11 +287,41 @@ def func1(lock):
 if __name__ == '__main__':
     lock = Lock()
     G = GmailFS(sys.argv[1])
-    p1 = Process(target=FUSE, args=(G, sys.argv[2]))
-    p1.start()
+    kwa = {'nothreads': True, 'foreground': True}
+    p1 = Process(target=FUSE, args=(G, sys.argv[2]), kwargs=kwa)
+    p1.daemon = True
     p2 = Process(target=G.gmail_client.listen_for_updates, args=(lock,))
-    #p2 = Process(target=func1, args=(lock,))
+    p2.daemon = True
+
+    p1.start()
     p2.start()
-    p1.join()
-    p2.join()
+    
+    try:
+        p1.join()
+        p2.join()
+    except KeyboardInterrupt:
+        p1.terminate()
+        p1.join()
+        p2.terminate()
+        p2.join()
+
+    # try:
+    #     while True:
+    #         TT.sleep(1)
+    # except KeyboardInterrupt:
+    #     print("KINT")
+    #     p1.terminate()
+    #     p1.join()
+    #     p2.terminate()
+    #     p2.join()
+    #     print(p1.is_alive())
+    #     print(p2.is_alive())
+    # else:
+    #     print("Quitting normally")
+    #     p1.close()
+    #     p1.join()
+    #     p1.close()
+    #     p1.join()
+
     # FUSE(GmailFS(sys.argv[1]), sys.argv[2], nothreads=True, foreground=True)
+
