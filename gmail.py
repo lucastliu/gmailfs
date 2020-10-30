@@ -19,11 +19,15 @@ import email
 
 from concurrent.futures import TimeoutError
 from google.cloud import pubsub_v1
-from multiprocessing import Process, Lock
+from multiprocessing import Lock
 
 import ast
 
 import os
+
+import configparser
+
+
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "project_key.json"
 
@@ -61,8 +65,11 @@ class Gmail():
         self.service = build('gmail', 'v1', credentials=creds)
         self.user_id = "me"
 
+        self.config = configparser.ConfigParser()
+        self.config.sections()
+        self.config.read('config.ini')
+        self.historyId = 0
         self.start_autoupdate_service()
-
 
     ### util functions
     def get_messages(self, label=None):
@@ -126,7 +133,11 @@ class Gmail():
 
             # request specific message in meta by id
             m_meta = self.get_meta_message(m['id'])
-
+            # TODO: historyId
+            # You can get each messages' historyId like this:
+            # print(m_meta['historyId'])
+            # the first message m's historyId will be the most recent.
+            # Messages are ordered from most recent to oldest
             meta = {}
             subject = ''
             for header in m_meta['payload']['headers']:
@@ -163,8 +174,36 @@ class Gmail():
         }
 
         response = self.service.users().watch(userId='me', body=request).execute()
+        self.historyId = response['historyId']
+        print('Starting History ID: {}'.format(self.historyId))
 
-        print(response)
+    def partial_sync(self, startHistoryId=None):
+        # notifies of all changes after given historyId
+        if(startHistoryId is None):
+            startHistoryId = self.historyId
+
+        try:
+            history = self.service.users().history()\
+                     .list(userId='me',
+                           startHistoryId=startHistoryId).execute()['history'][0]
+
+            print(history)
+            if 'messagesAdded' in history:
+                print('Additions')
+                for added in history['messagesAdded']:
+                    print(added['message']['id'])
+                    # TODO: handle new added messages
+
+            if 'messagesDeleted' in history:
+                print('Deletions')
+                for deleted in history['messagesDeleted']:
+                    print(deleted['message']['id'])
+                    # TODO: handle deleted messages
+                    # Note: Move to trash is not deleting.
+                    # Must delete from trash.
+
+        except Exception as error:
+            print('An error occurred during autoupdate: %s' % error)
 
     def listen_for_updates(self, lock):
         project_id = "quickstart-1602387234428"
@@ -174,13 +213,14 @@ class Gmail():
         # in the form `projects/{project_id}/subscriptions/{subscription_id}`
         subscription_path = subscriber.subscription_path(project_id,
                                                          subscription_id)
-        # https://developers.google.com/gmail/api/guides/sync#partial
-        # TODO: use historyId, call history.list(), get all changes
+
         def callback(message):
             lock.acquire()
-            print(f"Received {message}.")
+            #print(f"Received {message}.")
             data = ast.literal_eval(message.data.decode("utf-8"))
-            print(data['historyId'])
+            print('New Update: {}'.format(data['historyId']))
+            self.partial_sync()
+            self.historyId = data['historyId']
             message.ack()
             lock.release()
 

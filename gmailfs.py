@@ -295,7 +295,7 @@ if __name__ == '__main__':
 
     p1.start()
     p2.start()
-    
+
     try:
         p1.join()
         p2.join()
@@ -305,23 +305,4 @@ if __name__ == '__main__':
         p2.terminate()
         p2.join()
 
-    # try:
-    #     while True:
-    #         TT.sleep(1)
-    # except KeyboardInterrupt:
-    #     print("KINT")
-    #     p1.terminate()
-    #     p1.join()
-    #     p2.terminate()
-    #     p2.join()
-    #     print(p1.is_alive())
-    #     print(p2.is_alive())
-    # else:
-    #     print("Quitting normally")
-    #     p1.close()
-    #     p1.join()
-    #     p1.close()
-    #     p1.join()
-
     # FUSE(GmailFS(sys.argv[1]), sys.argv[2], nothreads=True, foreground=True)
-
