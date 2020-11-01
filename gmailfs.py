@@ -5,13 +5,13 @@ from time import time
 import errno
 from enum import Enum
 from lru import LRUCache
-
+import threading
 import os
 import shutil
 import sys
 import re
 
-from multiprocessing import Process, Lock
+# from multiprocessing import Process, Lock
 
 import time as TT
 
@@ -22,12 +22,14 @@ import time as TT
 
 class GmailFS(Operations):
     def __init__(self, root, lru_capacity):
+        # self.lock = Lock()
         self.gmail_client = Gmail()
         self.metadata_dict, _ = self.gmail_client.get_email_list()
         self.root = root
         self.eid_by_path = dict()
         self.lru = LRUCache(lru_capacity, self)
         self.lru_capacity = lru_capacity
+        self.gmail_client.gmailfs = self
 
     def __enter__(self):
         print("start...")
@@ -231,6 +233,8 @@ class GmailFS(Operations):
                 # add to lru and delete the oldest entry
                 self.lru.add(inbox_folder_path)
 
+                if not os.path.exists(inbox_folder_path):
+                    os.makedirs(inbox_folder_path)
 
                 # mapping fake address
                 path_tuple = full_path.split('/')
@@ -334,24 +338,38 @@ def func1(lock):
 
 
 if __name__ == '__main__':
-    lock = Lock()
+    run_event = threading.Event()
+    run_event.set()
     with GmailFS(sys.argv[1], 10) as G:
         kwa = {'nothreads': True, 'foreground': True}
-        p1 = Process(target=FUSE, args=(G, sys.argv[2]), kwargs=kwa)
-        p1.daemon = True
-        p2 = Process(target=G.gmail_client.listen_for_updates, args=(lock,))
-        p2.daemon = True
+        t1 = threading.Thread(target=FUSE, args=(G, sys.argv[2]), kwargs=kwa)
+        # t1.daemon = True
+        t2 = threading.Thread(target=G.gmail_client.listen_for_updates)
+        # t1.daemon = True
 
-        p1.start()
-        p2.start()
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
 
-        try:
-            p1.join()
-            p2.join()
-        except KeyboardInterrupt:
-            p1.terminate()
-            p1.join()
-            p2.terminate()
-            p2.join()
+    # lock = Lock()
+    # with GmailFS(sys.argv[1], 10) as G:
+    #     kwa = {'nothreads': True, 'foreground': True}
+    #     p1 = Process(target=FUSE, args=(G, sys.argv[2]), kwargs=kwa)
+    #     p1.daemon = True
+    #     p2 = Process(target=G.gmail_client.listen_for_updates, args=(lock,))
+    #     p2.daemon = True
+    #
+    #     p1.start()
+    #     p2.start()
+    #
+    #     try:
+    #         p1.join()
+    #         p2.join()
+    #     except KeyboardInterrupt:
+    #         p1.terminate()
+    #         p1.join()
+    #         p2.terminate()
+    #         p2.join()
 
     # FUSE(GmailFS(sys.argv[1]), sys.argv[2], nothreads=True, foreground=True)

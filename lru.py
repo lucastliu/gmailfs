@@ -1,41 +1,49 @@
 from collections import OrderedDict
 import shutil
 import os
-import re
+import threading
 
 
 class LRUCache(OrderedDict):
 
     def __init__(self, capacity, gmailfs):
         super().__init__()
+        self.lock = threading.Lock()
         self.capacity = capacity
         self.gmailfs = gmailfs
 
+    def _get_mime_and_folder_name(self, email_id):
+        mime = self.gmailfs.gmail_client.get_mime_message(email_id)
+        return mime, mime["Subject"] + " ID " + email_id
+
     def touch(self, key):
-        if key not in self:
-            raise ValueError("Touch a nonexistent key")
-        self.move_to_end(key)
+        with self.lock:
+            if key not in self:
+                raise ValueError("Touch a nonexistent key")
+            self.move_to_end(key)
 
     def contains(self, key):
-        if key not in self:
-            return False
-        self.move_to_end(key)
-        return True
+        with self.lock:
+            if key not in self:
+                return False
+            self.move_to_end(key)
+            return True
 
     # return the name of the file which will be kick out of the cache
     def add(self, key):
-        if key in self:
-            self.move_to_end(key)
-        self[key] = None
-        if len(self) > self.capacity:
-            to_delete = self.popitem(last=False)[0]
-            if to_delete:
-                shutil.rmtree(to_delete)
+        to_delete = None
+        with self.lock:
+            if key in self:
+                self.move_to_end(key)
+            self[key] = None
+            if len(self) > self.capacity:
+                to_delete = self.popitem(last=False)[0]
+        if to_delete:
+            shutil.rmtree(to_delete)
 
     # email_folder_name
     def add_new_email(self, email_id, expected_email_folder_name=None):
-        mime = self.gmailfs.gmail_client.get_mime_message(email_id)
-        email_folder_name = mime["Subject"] + " ID " + email_id
+        mime, email_folder_name = self._get_mime_and_folder_name(email_id)
         if expected_email_folder_name:
             assert expected_email_folder_name == email_folder_name
 
@@ -48,4 +56,11 @@ class LRUCache(OrderedDict):
             f.write(str(mime))
 
         self.add(folder_path)
+
+    def delete_message(self, email_id):
+        _, email_folder_name = self._get_mime_and_folder_name(email_id)
+        self.pop(email_folder_name)
+        assert os.path.exists(email_folder_name)
+        if os.path.isdir(email_folder_name):
+            shutil.rmtree(email_folder_name)
 

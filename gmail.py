@@ -70,6 +70,7 @@ class Gmail():
         self.config.read('config.ini')
         self.historyId = 0
         self.start_autoupdate_service()
+        self.gmailfs = None
 
     ### util functions
     def get_messages(self, label=None):
@@ -193,19 +194,21 @@ class Gmail():
                 for added in history['messagesAdded']:
                     print(added['message']['id'])
                     # TODO: handle new added messages
+                    self.gmailfs.lru.add_new_email(added['message']['id'])
 
             if 'messagesDeleted' in history:
                 print('Deletions')
                 for deleted in history['messagesDeleted']:
                     print(deleted['message']['id'])
                     # TODO: handle deleted messages
-                    # Note: Move to trash is not deleting.
-                    # Must delete from trash.
+                    #                     # Note: Move to trash is not deleting.
+                    #                     # Must delete from trash.
+                    self.gmailfs.lru.delete_message(deleted['message']['id'])
 
         except Exception as error:
             print('An error occurred during autoupdate: %s' % error)
 
-    def listen_for_updates(self, lock):
+    def listen_for_updates(self):
         project_id = "quickstart-1602387234428"
         subscription_id = "update_sub"
         subscriber = pubsub_v1.SubscriberClient()
@@ -215,14 +218,14 @@ class Gmail():
                                                          subscription_id)
 
         def callback(message):
-            lock.acquire()
+            # lock.acquire()
             #print(f"Received {message}.")
             data = ast.literal_eval(message.data.decode("utf-8"))
             print('New Update: {}'.format(data['historyId']))
             self.partial_sync()
             self.historyId = data['historyId']
             message.ack()
-            lock.release()
+            # lock.release()
 
         streaming_pull_future = subscriber.subscribe(subscription_path,
                                                      callback=callback)
