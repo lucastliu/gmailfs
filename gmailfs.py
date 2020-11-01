@@ -343,14 +343,14 @@ if __name__ == '__main__':
     with GmailFS(sys.argv[1], 10) as G:
         kwa = {'nothreads': True, 'foreground': True}
         t1 = threading.Thread(target=FUSE, args=(G, sys.argv[2]), kwargs=kwa)
-        # t1.daemon = True
+        t1.daemon = True
         t2 = threading.Thread(target=G.gmail_client.listen_for_updates)
-        # t1.daemon = True
-
+        t2.daemon = True
         t1.start()
         t2.start()
         t1.join()
         t2.join()
+
 
     # lock = Lock()
     # with GmailFS(sys.argv[1], 10) as G:
