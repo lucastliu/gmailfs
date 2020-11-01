@@ -4,10 +4,12 @@ import stat
 from time import time
 import errno
 from enum import Enum
+from lru import LRUCache
 
 import os
 import shutil
 import sys
+import re
 
 from multiprocessing import Process, Lock
 
@@ -19,20 +21,47 @@ import time as TT
 
 
 class GmailFS(Operations):
-    def __init__(self, root):
+    def __init__(self, root, lru_capacity):
         self.gmail_client = Gmail()
         self.metadata_dict, _ = self.gmail_client.get_email_list()
         self.root = root
         self.eid_by_path = dict()
+        self.lru = LRUCache(lru_capacity, self)
+        self.lru_capacity = lru_capacity
 
-        inbox_cache_directory = self._full_path("/inbox/")
+    def __enter__(self):
+        print("start...")
+        self.inbox_cache_directory = self._full_path("/inbox/")
         send_directory = self._full_path("/send/")
         sent_directory = self._full_path("/sent/")
 
-        for directory in [inbox_cache_directory, send_directory, sent_directory]:
+        for directory in [self.inbox_cache_directory, send_directory, sent_directory]:
             if not os.path.exists(directory):
                 os.makedirs(directory)
+        self.metadata_dict, subject_list = self.gmail_client.get_email_list()
 
+        cache_subject_list = subject_list[:self.lru_capacity] if self.lru_capacity < len(subject_list) else subject_list
+        cache_subject_list.reverse()  # add to cache from old to new
+        for email_subject_line in cache_subject_list:
+            if len(self.lru) >= self.lru_capacity:
+                break
+
+            email_id = self.metadata_dict[email_subject_line]["id"]
+            self.lru.add_new_email(email_id, email_subject_line)
+            # mime = self.gmail_client.get_mime_message(email_id)
+            # relative_folder_path = "/inbox/" + email_subject_line
+            # folder_path = self._full_path(relative_folder_path)
+            # if not os.path.exists(folder_path):
+            #     os.makedirs(folder_path)
+            # raw_path = self._full_path(relative_folder_path + "/raw")
+            # with open(raw_path, "w+") as f:
+            #     f.write(str(mime))
+            # self.lru.add(folder_path)
+        return self
+
+    def __exit__(self, type, value, traceback):
+        shutil.rmtree(self.inbox_cache_directory)
+        print("exit...")
     # Helpers
     # =======
 
@@ -48,6 +77,11 @@ class GmailFS(Operations):
     def access(self, path, mode):
         print("access")
         full_path = self._full_path(path)
+        m = re.search(r"^.*\/src\/inbox\/.*?([^\\]\/|$)", full_path)
+        if m:
+            inbox_folder_path = m.group(0)
+            if not os.path.exists(inbox_folder_path):
+                os.makedirs(inbox_folder_path)
         if not os.access(full_path, mode):
             raise FuseOSError(errno.EACCES)
 
@@ -89,9 +123,10 @@ class GmailFS(Operations):
             st['st_size'] = self.metadata_dict[subject]['size']
             st['st_ctime'] = st['st_mtime'] = st['st_atime'] = self.metadata_dict[subject]['date']
             # create empty folder for each email in cache folder
-            if not os.path.isdir(self._full_path(path)):
-                full_path = self._full_path(path)
-                os.makedirs(full_path)
+            # TODO: can I remove this?
+            # if not os.path.isdir(self._full_path(path)):
+            #     full_path = self._full_path(path)
+            #     os.makedirs(full_path)
         # attr for raw, html, plainTxt in email folder
         elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_CONTENT:
             subject = path.split('/')[2]
@@ -182,34 +217,48 @@ class GmailFS(Operations):
         print("open")
         full_path = self._full_path(path)
 
-        # mapping fake address
-        if not os.path.exists(full_path):
-            path_tuple = full_path.split('/')
-            raw_path = '/'.join(path_tuple[:-1]) + '/raw'
-            # fetch MIME type email as base
-            if os.path.basename(full_path) == 'raw' or not os.path.exists(raw_path):
-                email_subject_line = path_tuple[2]
-                email_id = self.metadata_dict[email_subject_line]["id"]
-                mime = self.gmail_client.get_mime_message(email_id)
-                with open(raw_path, "w+") as f:
-                    f.write(str(mime))
-            if os.path.basename(full_path) == 'html':
-                with open(raw_path, "r") as f, open(full_path, "a+") as f_html:
-                    lines_list = f.readlines()
-                    is_html = False
-                    for line in lines_list[1:]:
-                        if is_html:
-                            if line.find('</html>') != -1:
-                                index = line.find('</html>')
-                                print(line)
-                                f_html.write(line[:index + len('</html>')])
-                                break
-                            else:
-                                f_html.write(line)
-                        elif not is_html and line.find('<html') != -1:
-                            index = line.find('<html')
-                            f_html.write(line[index:])
-                            is_html = True
+        inbox_folder_path = None
+        m = re.search(r"(^.*\/src\/inbox\/.*?[^\\])\/", full_path)
+        if m:
+            inbox_folder_path = m.group(1)
+
+        if inbox_folder_path:
+            if os.path.exists(full_path):
+                # update the entry order in lru
+                self.lru.move_to_end(inbox_folder_path)
+            else:
+
+                # add to lru and delete the oldest entry
+                self.lru.add(inbox_folder_path)
+
+
+                # mapping fake address
+                path_tuple = full_path.split('/')
+                raw_path = '/'.join(path_tuple[:-1]) + '/raw'
+                # fetch MIME type email as base
+                if os.path.basename(full_path) == 'raw' or not os.path.exists(raw_path):
+                    email_subject_line = path_tuple[-2]
+                    email_id = self.metadata_dict[email_subject_line]["id"]
+                    mime = self.gmail_client.get_mime_message(email_id)
+                    with open(raw_path, "w+") as f:
+                        f.write(str(mime))
+                if os.path.basename(full_path) == 'html':
+                    with open(raw_path, "r") as f, open(full_path, "a+") as f_html:
+                        lines_list = f.readlines()
+                        is_html = False
+                        for line in lines_list[1:]:
+                            if is_html:
+                                if line.find('</html>') != -1:
+                                    index = line.find('</html>')
+                                    print(line)
+                                    f_html.write(line[:index + len('</html>')])
+                                    break
+                                else:
+                                    f_html.write(line)
+                            elif not is_html and line.find('<html') != -1:
+                                index = line.find('<html')
+                                f_html.write(line[index:])
+                                is_html = True
 
         fd = os.open(full_path, flags)
 
@@ -286,23 +335,23 @@ def func1(lock):
 
 if __name__ == '__main__':
     lock = Lock()
-    G = GmailFS(sys.argv[1])
-    kwa = {'nothreads': True, 'foreground': True}
-    p1 = Process(target=FUSE, args=(G, sys.argv[2]), kwargs=kwa)
-    p1.daemon = True
-    p2 = Process(target=G.gmail_client.listen_for_updates, args=(lock,))
-    p2.daemon = True
+    with GmailFS(sys.argv[1], 10) as G:
+        kwa = {'nothreads': True, 'foreground': True}
+        p1 = Process(target=FUSE, args=(G, sys.argv[2]), kwargs=kwa)
+        p1.daemon = True
+        p2 = Process(target=G.gmail_client.listen_for_updates, args=(lock,))
+        p2.daemon = True
 
-    p1.start()
-    p2.start()
+        p1.start()
+        p2.start()
 
-    try:
-        p1.join()
-        p2.join()
-    except KeyboardInterrupt:
-        p1.terminate()
-        p1.join()
-        p2.terminate()
-        p2.join()
+        try:
+            p1.join()
+            p2.join()
+        except KeyboardInterrupt:
+            p1.terminate()
+            p1.join()
+            p2.terminate()
+            p2.join()
 
     # FUSE(GmailFS(sys.argv[1]), sys.argv[2], nothreads=True, foreground=True)
