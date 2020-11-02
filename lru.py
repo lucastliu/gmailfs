@@ -58,8 +58,7 @@ class LRUCache(OrderedDict):
         self.add(folder_path)
 
     def delete_message(self, email_id):
-        _, email_folder_name = self._get_mime_and_folder_name(email_id)
-        self.pop(email_folder_name)
+        email_folder_name = self.gmailfs.subject_by_id[email_id]
         assert os.path.exists(email_folder_name)
         if os.path.isdir(email_folder_name):
             shutil.rmtree(email_folder_name)

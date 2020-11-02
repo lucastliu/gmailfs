@@ -128,6 +128,7 @@ class Gmail():
         messages = self.get_messages('INBOX')['messages']
         subject_list = []
         metadata_dict = {}
+        subject_by_id = {}
 
         # iterate each id in messages list, get meta
         for m in messages:
@@ -155,9 +156,10 @@ class Gmail():
 
             key = subject + " ID " + m_meta['id']
             metadata_dict[key] = meta
+            subject_by_id[m_meta['id']] = key
             subject_list.append(key)
 
-        return metadata_dict, subject_list
+        return metadata_dict, subject_list, subject_by_id
         # message = get_mime_message(service, user_id, messages['messages'][1]['id'])
 
     def send_email(self, draft):

@@ -25,7 +25,7 @@ class GmailFS(Operations):
     def __init__(self, root, lru_capacity):
         # self.lock = Lock()
         self.gmail_client = Gmail()
-        self.metadata_dict, _ = self.gmail_client.get_email_list()
+        self.metadata_dict, _, self.subject_by_id = self.gmail_client.get_email_list()
         self.root = root
         self.client = os.path.basename(root)
         self.eid_by_path = dict()
@@ -42,7 +42,7 @@ class GmailFS(Operations):
         for directory in [self.inbox_cache_directory, send_directory, sent_directory]:
             if not os.path.exists(directory):
                 os.makedirs(directory)
-        self.metadata_dict, subject_list = self.gmail_client.get_email_list()
+        self.metadata_dict, subject_list, _ = self.gmail_client.get_email_list()
 
         cache_subject_list = subject_list[:self.lru_capacity] if self.lru_capacity < len(subject_list) else subject_list
         cache_subject_list.reverse()  # add to cache from old to new
@@ -81,7 +81,7 @@ class GmailFS(Operations):
     def access(self, path, mode):
         print("access")
         full_path = self._full_path(path)
-        m = re.search(r"^.*\/\/{self.client}\/.*?([^\\]\/|$)", full_path)
+        m = re.search(rf"^.*\/{self.client}\/inbox\/.*?([^\\]\/|$)", full_path)
         if m:
             inbox_folder_path = m.group(0)
             if not os.path.exists(inbox_folder_path):
@@ -151,7 +151,7 @@ class GmailFS(Operations):
 
     def readdir(self, path, fh):
         if path == '/inbox':
-            self.metadata_dict, subject_list = self.gmail_client.get_email_list()
+            self.metadata_dict, subject_list, _ = self.gmail_client.get_email_list()
             return ['.', '..'] + subject_list
         elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_FOLDER:
             return ['.', '..', 'raw', 'html', 'plaintxt']
@@ -222,7 +222,7 @@ class GmailFS(Operations):
         full_path = self._full_path(path)
 
         inbox_folder_path = None
-        m = re.search(r"(^.*\/{self.client}\/inbox\/.*?[^\\])\/", full_path)
+        m = re.search(rf"(^.*\/{self.client}\/inbox\/.*?[^\\])\/", full_path)
         if m:
             inbox_folder_path = m.group(1)
 
@@ -341,10 +341,14 @@ def func1(lock):
 
 if __name__ == '__main__':
 
+    # if not os.path.exists("./client"):
+    #     os.makedirs("./client")
+    # if not os.path.exists("./src"):
+    #     os.makedirs("./src")
     try:
-        with GmailFS(sys.argv[1], 10) as G:
+        with GmailFS("./src", 10) as G:
             kwa = {'nothreads': True, 'foreground': True}
-            t1 = threading.Thread(target=FUSE, args=(G, sys.argv[2]), kwargs=kwa)
+            t1 = threading.Thread(target=FUSE, args=(G, "./client"), kwargs=kwa)
             t1.daemon = True
             t2 = threading.Thread(target=G.gmail_client.listen_for_updates)
             t2.daemon = True
