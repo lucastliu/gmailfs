@@ -14,6 +14,7 @@ import re
 # from multiprocessing import Process, Lock
 
 import time as TT
+import subprocess
 
 
 # Reference: the basic code in this file is adopted from this python fuse
@@ -103,7 +104,7 @@ class GmailFS(Operations):
         EMAIL_CONTENT = 2
 
     def path_type(self, path):
-        if not '/inbox/' in path:
+        if '/inbox/' not in path:
             return False
         path_tuple = path.split('/')
         if len(path_tuple) == 3:
@@ -339,18 +340,30 @@ def func1(lock):
 
 
 if __name__ == '__main__':
-    run_event = threading.Event()
-    run_event.set()
-    with GmailFS(sys.argv[1], 10) as G:
-        kwa = {'nothreads': True, 'foreground': True}
-        t1 = threading.Thread(target=FUSE, args=(G, sys.argv[2]), kwargs=kwa)
-        t1.daemon = True
-        t2 = threading.Thread(target=G.gmail_client.listen_for_updates)
-        t2.daemon = True
-        t1.start()
-        t2.start()
-        t1.join()
-        t2.join()
+
+    try:
+        with GmailFS(sys.argv[1], 10) as G:
+            kwa = {'nothreads': True, 'foreground': True}
+            t1 = threading.Thread(target=FUSE, args=(G, sys.argv[2]), kwargs=kwa)
+            t1.daemon = True
+            t2 = threading.Thread(target=G.gmail_client.listen_for_updates)
+            t2.daemon = True
+            t1.start()
+            t2.start()
+            while t1.is_alive() or t2.is_alive():
+                TT.sleep(1)
+
+    except KeyboardInterrupt:
+        print("Force Close")
+        t1.join(1)
+        t2.join(1)
+        process = subprocess.Popen(['umount', 'client'],
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        process.communicate()
+        sys.exit(0)
+
+
 
 
     # lock = Lock()
