@@ -26,6 +26,7 @@ class GmailFS(Operations):
         self.gmail_client = Gmail()
         self.metadata_dict, _ = self.gmail_client.get_email_list()
         self.root = root
+        self.client = os.path.basename(root)
         self.eid_by_path = dict()
         self.lru = LRUCache(lru_capacity, self)
         self.lru_capacity = lru_capacity
@@ -79,7 +80,7 @@ class GmailFS(Operations):
     def access(self, path, mode):
         print("access")
         full_path = self._full_path(path)
-        m = re.search(r"^.*\/src\/inbox\/.*?([^\\]\/|$)", full_path)
+        m = re.search(r"^.*\/\/{self.client}\/.*?([^\\]\/|$)", full_path)
         if m:
             inbox_folder_path = m.group(0)
             if not os.path.exists(inbox_folder_path):
@@ -220,7 +221,7 @@ class GmailFS(Operations):
         full_path = self._full_path(path)
 
         inbox_folder_path = None
-        m = re.search(r"(^.*\/src\/inbox\/.*?[^\\])\/", full_path)
+        m = re.search(r"(^.*\/{self.client}\/inbox\/.*?[^\\])\/", full_path)
         if m:
             inbox_folder_path = m.group(1)
 
