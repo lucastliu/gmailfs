@@ -83,9 +83,8 @@ class GmailFS(Operations):
         full_path = self._full_path(path)
         m = re.search(rf"^.*\/{self.client}\/inbox\/.*?([^\\]\/|$)", full_path)
         if m:
-            inbox_folder_path = m.group(0)
-            if not os.path.exists(inbox_folder_path):
-                os.makedirs(inbox_folder_path)
+            # create the folder later in the open()
+            return 0
         if not os.access(full_path, mode):
             raise FuseOSError(errno.EACCES)
 
@@ -221,6 +220,8 @@ class GmailFS(Operations):
         print("open")
         full_path = self._full_path(path)
 
+
+
         inbox_folder_path = None
         m = re.search(rf"(^.*\/{self.client}\/inbox\/.*?[^\\])\/", full_path)
         if m:
@@ -231,12 +232,16 @@ class GmailFS(Operations):
                 # update the entry order in lru
                 self.lru.move_to_end(inbox_folder_path)
             else:
-
-                # add to lru and delete the oldest entry
-                self.lru.add(inbox_folder_path)
-
+                inbox_folder_path = m.group(0)
                 if not os.path.exists(inbox_folder_path):
                     os.makedirs(inbox_folder_path)
+
+                    # add to lru and delete the oldest entry
+                    path_tuple = full_path.split('/')
+                    email_folder_name = path_tuple[-2]
+                    email_id = self.metadata_dict[email_folder_name]["id"]
+                    # add new email will fetch raw content
+                    self.lru.add_new_email(email_id, email_folder_name)
 
                 # mapping fake address
                 path_tuple = full_path.split('/')
