@@ -92,20 +92,23 @@ class Gmail():
         try:
             message = service.users().messages().get(userId=user_id, id=msg_id,
                                                      format='raw').execute()
+            if message is None:
+                raise NonexistenceEmailError(f"Email {msg_id} doesn't exist")
             print('Message snippet: %s' % message['snippet'])
             msg_str = base64.urlsafe_b64decode(
                 message['raw'].encode("utf-8")).decode("utf-8")
             mime_msg = email.message_from_string(msg_str)
 
             return mime_msg
-        except Exception as error:
+        except TypeError as error:
             print('An error occurred: %s' % error)
 
     def get_attachments(self, msg_id, store_dir):
         service, user_id = self.service, self.user_id
         try:
             message = service.users().messages().get(userId=user_id, id=msg_id).execute()
-
+            if message is None:
+                raise NonexistenceEmailError("Email attachments don't exist")
             for part in message['payload']['parts']:
                 if (part['filename'] and part['body'] and part['body']['attachmentId']):
                     attachment = service.users().messages().attachments().get(
@@ -118,7 +121,7 @@ class Gmail():
                     f = open(path, 'wb')
                     f.write(file_data)
                     f.close()
-        except Exception as error:
+        except TypeError as error:
             print('An error occurred: %s' % error)
 
     ### combination functions
@@ -262,3 +265,8 @@ def test():
 
 if __name__ == '__main__':
     test()
+
+
+class NonexistenceEmailError(Exception):
+    def __init__(self, message):
+        super().__init__(message)

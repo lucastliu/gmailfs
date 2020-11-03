@@ -3,6 +3,7 @@ import shutil
 import os
 import threading
 
+from gmail import NonexistenceEmailError
 
 class LRUCache(OrderedDict):
 
@@ -43,7 +44,10 @@ class LRUCache(OrderedDict):
 
     # email_folder_name
     def add_new_email(self, email_id, expected_email_folder_name=None):
-        mime, email_folder_name = self._get_mime_and_folder_name(email_id)
+        try:
+            mime, email_folder_name = self._get_mime_and_folder_name(email_id)
+        except NonexistenceEmailError:
+            return
         if expected_email_folder_name:
             assert expected_email_folder_name == email_folder_name
 

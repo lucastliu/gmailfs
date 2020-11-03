@@ -49,9 +49,10 @@ class GmailFS(Operations):
         for email_subject_line in cache_subject_list:
             if len(self.lru) >= self.lru_capacity:
                 break
-
             email_id = self.metadata_dict[email_subject_line]["id"]
+
             self.lru.add_new_email(email_id, email_subject_line)
+
             # mime = self.gmail_client.get_mime_message(email_id)
             # relative_folder_path = "/inbox/" + email_subject_line
             # folder_path = self._full_path(relative_folder_path)
