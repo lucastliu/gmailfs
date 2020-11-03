@@ -3,3 +3,4 @@ __pycache__/
 project_key.json
 credentials.json
 token.pickle
+config.ini

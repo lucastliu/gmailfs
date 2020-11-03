@@ -71,6 +71,7 @@ class Gmail():
         self.historyId = 0
         self.start_autoupdate_service()
         self.gmailfs = None
+        self.subname = self.config['GMAIL']['subname']
 
     ### util functions
     def get_messages(self, label=None):
@@ -215,7 +216,7 @@ class Gmail():
 
     def listen_for_updates(self):
         project_id = "quickstart-1602387234428"
-        subscription_id = "update_sub"
+        subscription_id = self.subname
         subscriber = pubsub_v1.SubscriberClient()
         # The `subscription_path` method creates a fully qualified identifier
         # in the form `projects/{project_id}/subscriptions/{subscription_id}`
