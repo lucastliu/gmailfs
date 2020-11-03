@@ -71,6 +71,7 @@ class Gmail():
         self.historyId = 0
         self.start_autoupdate_service()
         self.gmailfs = None
+        self.subname = self.config['GMAIL']['subname']
 
     ### util functions
     def get_messages(self, label=None):
@@ -92,20 +93,23 @@ class Gmail():
         try:
             message = service.users().messages().get(userId=user_id, id=msg_id,
                                                      format='raw').execute()
+            if message is None:
+                raise NonexistenceEmailError(f"Email {msg_id} doesn't exist")
             print('Message snippet: %s' % message['snippet'])
             msg_str = base64.urlsafe_b64decode(
                 message['raw'].encode("utf-8")).decode("utf-8")
             mime_msg = email.message_from_string(msg_str)
 
             return mime_msg
-        except Exception as error:
+        except TypeError as error:
             print('An error occurred: %s' % error)
 
     def get_attachments(self, msg_id, store_dir):
         service, user_id = self.service, self.user_id
         try:
             message = service.users().messages().get(userId=user_id, id=msg_id).execute()
-
+            if message is None:
+                raise NonexistenceEmailError("Email attachments don't exist")
             for part in message['payload']['parts']:
                 if (part['filename'] and part['body'] and part['body']['attachmentId']):
                     attachment = service.users().messages().attachments().get(
@@ -118,7 +122,7 @@ class Gmail():
                     f = open(path, 'wb')
                     f.write(file_data)
                     f.close()
-        except Exception as error:
+        except TypeError as error:
             print('An error occurred: %s' % error)
 
     ### combination functions
@@ -212,7 +216,7 @@ class Gmail():
 
     def listen_for_updates(self):
         project_id = "quickstart-1602387234428"
-        subscription_id = "update_sub"
+        subscription_id = self.subname
         subscriber = pubsub_v1.SubscriberClient()
         # The `subscription_path` method creates a fully qualified identifier
         # in the form `projects/{project_id}/subscriptions/{subscription_id}`
@@ -262,3 +266,8 @@ def test():
 
 if __name__ == '__main__':
     test()
+
+
+class NonexistenceEmailError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
