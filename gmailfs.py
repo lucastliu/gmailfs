@@ -341,10 +341,10 @@ def func1(lock):
 
 if __name__ == '__main__':
 
-    # if not os.path.exists("./client"):
-    #     os.makedirs("./client")
-    # if not os.path.exists("./src"):
-    #     os.makedirs("./src")
+    if not os.path.exists("./client"):
+        os.makedirs("./client")
+    if not os.path.exists("./src"):
+        os.makedirs("./src")
     try:
         with GmailFS("./src", 10) as G:
             kwa = {'nothreads': True, 'foreground': True}
