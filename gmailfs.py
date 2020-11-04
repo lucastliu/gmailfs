@@ -77,6 +77,7 @@ class GmailFS(Operations):
     # Helpers
     # =======
 
+    # add / at the end
     def _full_path(self, partial):
         if partial.startswith("/"):
             partial = partial[1:]
@@ -228,8 +229,6 @@ class GmailFS(Operations):
         print("open")
         full_path = self._full_path(path)
 
-
-
         inbox_folder_path = None
         m = re.search(rf"(^.*\/{self.client}\/inbox\/.*?[^\\])\/", full_path)
         if m:
@@ -240,7 +239,6 @@ class GmailFS(Operations):
                 # update the entry order in lru
                 self.lru.move_to_end(inbox_folder_path)
             else:
-                inbox_folder_path = m.group(0)
                 if not os.path.exists(inbox_folder_path):
                     os.makedirs(inbox_folder_path)
 
@@ -250,6 +248,8 @@ class GmailFS(Operations):
                     email_id = self.metadata_dict[email_folder_name]["id"]
                     # add new email will fetch raw content
                     self.lru.add_new_email(email_id, email_folder_name)
+                else:
+                    self.lru.move_to_end(inbox_folder_path)
 
                 # mapping fake address
                 path_tuple = full_path.split('/')
