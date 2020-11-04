@@ -217,30 +217,50 @@ class Gmail():
         if(startHistoryId is None):
             startHistoryId = self.historyId
 
+        def parse(history, changetype, function):
+            """
+            history: Google API history object
+            changetype: history changetype requested
+            function: function that all relevant message objects should be passed to
+            """
+            if changetype in history:
+                print(str(changetype))
+                for msg in history[changetype]:
+                    print(msg['message']['id'])
+                    function(msg)
+
+        def lru_add(msg):
+            self.gmailfs.lru.add_new_email(msg['message']['id'])
+
+        def lru_remove(msg):
+            self.gmailfs.lru.delete_message(msg['message']['id'])
+        
+        def isMovetoInbox(msg):
+            if('INBOX' in msg['labelIds']):
+                print('added to inbox')
+                self.gmailfs.lru.add_new_email(msg['message']['id'])
+
+        def isRemoveFromInbox(msg):
+            if('INBOX' in msg['labelIds']):
+                print('removed from inbox')
+                self.gmailfs.lru.delete_message(msg['message']['id'])
         try:
-            history = self.service.users().history()\
+            histories = self.service.users().history()\
                      .list(userId='me',
-                           startHistoryId=startHistoryId).execute()['history'][0]
+                           startHistoryId=startHistoryId).execute()['history']
 
-            print(history)
-            if 'messagesAdded' in history:
-                print('Additions')
-                for added in history['messagesAdded']:
-                    print(added['message']['id'])
-                    # TODO: handle new added messages
-                    self.gmailfs.lru.add_new_email(added['message']['id'])
+            for history in histories:
+                #print("NH ------------------------")
+                #print(history)
 
-            if 'messagesDeleted' in history:
-                print('Deletions')
-                for deleted in history['messagesDeleted']:
-                    print(deleted['message']['id'])
-                    # TODO: handle deleted messages
-                    #                     # Note: Move to trash is not deleting.
-                    #                     # Must delete from trash.
-                    self.gmailfs.lru.delete_message(deleted['message']['id'])
+                parse(history, 'messagesAdded', lru_add)
+                parse(history, 'messagesDeleted', lru_remove)
+                parse(history, 'labelsAdded', isMovetoInbox)
+                parse(history, 'labelsRemoved', isRemoveFromInbox)
 
         except Exception as error:
             print('An error occurred during autoupdate: %s' % error)
+            print(sys.exc_info()[2])
 
     def listen_for_updates(self):
         project_id = "quickstart-1602387234428"
@@ -255,7 +275,7 @@ class Gmail():
             # lock.acquire()
             #print(f"Received {message}.")
             data = ast.literal_eval(message.data.decode("utf-8"))
-            print('New Update: {}'.format(data['historyId']))
+            print('---------- New Update: {} ---------- '.format(data['historyId']))
             self.partial_sync()
             self.historyId = data['historyId']
             message.ack()
