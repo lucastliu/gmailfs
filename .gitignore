@@ -1,5 +1,7 @@
 .vscode/
 __pycache__/
+client/
+src/
 project_key.json
 credentials.json
 token.pickle

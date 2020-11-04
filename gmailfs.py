@@ -357,7 +357,7 @@ if __name__ == '__main__':
         print("Force Close")
         t1.join(1)
         t2.join(1)
-        process = subprocess.Popen(['umount', 'client'],
+        process = subprocess.Popen(['sudo', 'umount', 'client'],
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
         process.communicate()

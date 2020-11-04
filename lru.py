@@ -73,6 +73,7 @@ class LRUCache(OrderedDict):
         print("[cache] delete an email from lru")
         email_folder_path = os.path.join(self.gmailfs.root, "inbox", self.gmailfs.subject_by_id[email_id])
         if os.path.exists(email_folder_path) and os.path.isdir(email_folder_path):
+            del self[email_folder_path]
             shutil.rmtree(email_folder_path)
 
         # delete from metadata cache
