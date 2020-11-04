@@ -1,6 +1,8 @@
 from __future__ import print_function
 import pickle
 import os.path
+
+import googleapiclient
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -101,7 +103,9 @@ class Gmail():
             mime_msg = email.message_from_string(msg_str)
 
             return mime_msg
-        except TypeError as error:
+        except googleapiclient.errors.HttpError as http_error:
+            raise NonexistenceEmailError(f"Email {msg_id} doesn't exist")
+        except Exception as error:
             print('An error occurred: %s' % error)
 
     def get_attachments(self, msg_id, store_dir):
@@ -125,6 +129,29 @@ class Gmail():
         except TypeError as error:
             print('An error occurred: %s' % error)
 
+    def get_subject_and_metadata_with_id(self, email_id):
+        m_meta = self.get_meta_message(email_id)
+        # TODO: historyId
+        # You can get each messages' historyId like this:
+        # print(m_meta['historyId'])
+        # the first message m's historyId will be the most recent.
+        # Messages are ordered from most recent to oldest
+        meta = {}
+        subject = ''
+        for header in m_meta['payload']['headers']:
+            if header['name'] == 'Subject':
+                subject = header['value']
+                break
+
+        # for stat
+        meta['date'] = int(m_meta['internalDate']) / 1000  # gmail's timestamp is in millisecond, so divide by 1000
+        meta['size'] = int(m_meta['sizeEstimate'])
+
+        # unique identifier, for fetch full text
+        meta['id'] = m_meta['id']
+
+        return subject, meta
+
     ### combination functions
     def get_email_list(self):
         # https://developers.google.com/gmail/api/reference/rest/v1/users.messages/list
@@ -137,30 +164,31 @@ class Gmail():
         # iterate each id in messages list, get meta
         for m in messages:
 
-            # request specific message in meta by id
-            m_meta = self.get_meta_message(m['id'])
-            # TODO: historyId
-            # You can get each messages' historyId like this:
-            # print(m_meta['historyId'])
-            # the first message m's historyId will be the most recent.
-            # Messages are ordered from most recent to oldest
-            meta = {}
-            subject = ''
-            for header in m_meta['payload']['headers']:
-                if header['name'] == 'Subject':
-                    subject = header['value']
-                    break
-
-            # for stat
-            meta['date'] = int(m_meta['internalDate']) / 1000 #gmail's timestamp is in millisecond, so divide by 1000
-            meta['size'] = int(m_meta['sizeEstimate'])
-
-            # unique identifier, for fetch full text
-            meta['id'] = m_meta['id']
-
-            key = subject + " ID " + m_meta['id']
+            # # request specific message in meta by id
+            # m_meta = self.get_meta_message(m['id'])
+            # # TODO: historyId
+            # # You can get each messages' historyId like this:
+            # # print(m_meta['historyId'])
+            # # the first message m's historyId will be the most recent.
+            # # Messages are ordered from most recent to oldest
+            # meta = {}
+            # subject = ''
+            # for header in m_meta['payload']['headers']:
+            #     if header['name'] == 'Subject':
+            #         subject = header['value']
+            #         break
+            #
+            # # for stat
+            # meta['date'] = int(m_meta['internalDate']) / 1000 #gmail's timestamp is in millisecond, so divide by 1000
+            # meta['size'] = int(m_meta['sizeEstimate'])
+            #
+            # # unique identifier, for fetch full text
+            # meta['id'] = m_meta['id']
+            #
+            subject, meta = self.get_subject_and_metadata_with_id(m['id'])
+            key = subject + " ID " + meta['id']
             metadata_dict[key] = meta
-            subject_by_id[m_meta['id']] = key
+            subject_by_id[meta['id']] = key
             subject_list.append(key)
 
         return metadata_dict, subject_list, subject_by_id

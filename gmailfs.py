@@ -56,7 +56,7 @@ class GmailFS(Operations):
             email_id = self.metadata_dict[email_subject_line]["id"]
             cache_email_folder = os.path.join(self.inbox_cache_directory, email_subject_line)
             if os.path.exists(cache_email_folder):
-                self.lru.add(email_subject_line)
+                self.lru.add(cache_email_folder)
             else:
                 self.lru.add_new_email(email_id, email_subject_line)
 
@@ -159,8 +159,8 @@ class GmailFS(Operations):
 
     def readdir(self, path, fh):
         if path == '/inbox':
-            self.metadata_dict, subject_list, _ = self.gmail_client.get_email_list()
-            return ['.', '..'] + subject_list
+            # self.metadata_dict, subject_list, _ = self.gmail_client.get_email_list()
+            return ['.', '..'] + list(self.metadata_dict.keys())
         elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_FOLDER:
             return ['.', '..', 'raw', 'html', 'plaintxt']
         else:
