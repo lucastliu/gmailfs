@@ -4,9 +4,7 @@ import email
 class Parser:
     def __init__(self, raw_path, email_folder_name):
         # parsed file directory
-        self.parsed_file_folder = '/tmp/.gmailfs/'
-        if not os.path.exists(self.parsed_file_folder):
-            os.makedirs(self.parsed_file_folder)
+        self.boundary = None
         self.raw_path = raw_path
         self.email_folder_name = email_folder_name
         self.type = []
@@ -22,82 +20,56 @@ class Parser:
                         self.type.append('html')
                     if 'plain' in line:
                         self.type.append('plain')
-                if "boundary=" in line:
-                    start = line.find('boundary="') + len('boundary="') + 1
-                    end = line[start:].find('"')
-                    print(line[start:start + end])
-                    self.boundary = line[start:start + end]
 
-
-    def get_txt(self):
-        if 'text' in self.type:
-            tmp_file_path = self.parsed_file_folder + self.email_folder_name + '.txt'
-            # have been parsed
-            if os.path.exists(tmp_file_path):
-                return tmp_file_path
-            # need to parse now!
-            with open(self.raw_path, "r") as f, open(tmp_file_path, "a+") as f_txt:
-                # email.message_from_string(a)
-                finished = False
-                while not finished:
-                    line = f.readline()
-                    if 'Content-Type: text/plain;' in line:
-                        in_txt = False
-                        while not finished:
-                            line = f.readline()
-                            if not in_txt and '\n' == line:
-                                in_txt = True
-                            elif in_txt and line and not '--_000_' in line:
-                                f_txt.write(line)
-                            elif '--_000_' in line or not line:
-                                finished = True
-                                break
-                f_txt.write('\n')
-            print(tmp_file_path)
-            return tmp_file_path
-        elif 'html' in self.type:
-            # Todo: parse html into plainTXT
-            return self.get_html()
-        return None
+    def update_boundary(self, line):
+        if "boundary=" in line:
+            start = line.find('boundary="') + len('boundary="') + 1
+            end = line[start:].find('"')
+            print(line[start:start + end])
+            self.boundary = line[start:start + end]
 
     # file_type = 'html' or 'plain'
     def get_str(self, file_type):
+        offset = 0
+        length = 0
         if file_type in self.type:
-            tmp_file_path = self.parsed_file_folder + self.email_folder_name + '.' + file_type
-            # have been parsed
-            if os.path.exists(tmp_file_path):
-                return tmp_file_path
             # need to parse now!
-            with open(self.raw_path, "r") as f, open(tmp_file_path, "a+") as f_new:
+            with open(self.raw_path, "r") as f:
                 finished = False
-                self.boundary = None
                 while not finished:
                     line = f.readline()
-                    if "boundary=" in line:
-                        start = line.find('boundary="') + len('boundary="') + 1
-                        end = line[start:].find('"')
-                        print(line[start:start + end])
-                        self.boundary = line[start:start + end]
+                    self.update_boundary(line)
                     if 'Content-Type: text/' + file_type + ';' in line:
                         is_content = False
+                        self.update_boundary(line)
                         while not finished:
-                            line = f.readline()
+                            #    Needed part start
                             if not is_content and '\n' == line:
                                 is_content = True
-                            elif is_content and line and (self.boundary and not self.boundary in line):
-                                f_new.write(line)
-                            elif self.boundary in line or not line:
+                                offset += len(line)
+                            #     doesn't reach to the end
+                            elif is_content and line and (not self.boundary or (self.boundary and not self.boundary in line)):
+                                length += len(line)
+                            #     End of the needed part
+                            elif not line or (self.boundary and self.boundary in line):
                                 finished = True
                                 break
-                f_new.write('\n')
-                print(tmp_file_path)
-                return tmp_file_path
-        return None
+                            else:
+                                offset += len(line)
+                            line = f.readline()
+                    else:
+                        offset += len(line)
+        return offset, length
 
 def test():
-    p = Parser("test_parse_html.txt", "BASIC_EMAIL ID 1234")
-    print(p.boundary)
-    p.get_str('plain')
+    p = Parser("finish.txt", "BASIC_EMAIL ID 1234")
+    offset, length = p.get_str('plain')
+    with open(p.raw_path, "r") as f:
+        f.seek(offset)
+        parsed = f.read(length)
+    print("------------------------")
+    print(offset, length)
+    print(parsed)
     return
 
 

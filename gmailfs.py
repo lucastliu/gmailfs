@@ -252,16 +252,7 @@ class GmailFS(Operations):
                 email_id = self.metadata_dict[email_folder_name]["id"]
                 # add new email will fetch raw content
                 self.lru.add_new_email(email_id, email_folder_name)
-                raw_path = self._full_path("/inbox/" + str(email_folder_name) + "/raw")
-                p = Parser(raw_path, email_folder_name)
-                expected_type = path_tuple[-1]
-                if expected_type == 'content.html' and 'html' in p.type:
-                    full_path = p.get_str('html')
-                elif expected_type == 'content.html' or expected_type == 'content.txt':
-                    full_path = p.get_str('plain')
-                if not full_path:
-                    print("Error: Parser went wrong...")
-                    return -1
+                full_path = self._full_path("/inbox/" + str(email_folder_name) + "/raw")
         fd = os.open(full_path, flags)
         return fd
 
@@ -271,8 +262,32 @@ class GmailFS(Operations):
         return os.open(full_path, os.O_WRONLY | os.O_CREAT, mode)
 
     def read(self, path, length, offset, fh):
-
         print("read")
+        org_length = length
+        # org_offset = offset
+        # print("path: " + path + "; length: " + str(length) + '; offset: ' + str(offset))
+        if self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_CONTENT:
+            if 'content.html' in path or 'content.txt' in path:
+                print("path: " + path + "; length: " + str(length) + '; offset: ' + str(offset))
+                path_tuple = path.split('/')
+                email_folder_name = path_tuple[-2]
+                raw_path = self._full_path("/inbox/" + str(email_folder_name) + "/raw")
+                p = Parser(raw_path, email_folder_name)
+                expected_type = path_tuple[-1]
+                if expected_type == 'content.html' and 'html' in p.type:
+                    print("get_str_html")
+                    offset, length =  p.get_str('html')
+                elif expected_type == 'content.html' or expected_type == 'content.txt':
+                    print("get_str_txt")
+                    offset, length =  p.get_str('plain')
+                else:
+                    print("Error: Parser went wrong...")
+                    return -1
+                print('change offset to ' + str(offset) + 'and length' + str(length))
+                raw_file_read_ret = self.read(raw_path, length, offset, fh)
+                assert len(raw_file_read_ret) == length
+                return self.read(raw_path, length, offset, fh)
+        # set offset as start and length is the length
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)
 
