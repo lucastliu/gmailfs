@@ -5,6 +5,7 @@ from time import time
 import errno
 from enum import Enum
 from lru import LRUCache
+from content_parser import Parser
 import threading
 import os
 import shutil
@@ -134,11 +135,6 @@ class GmailFS(Operations):
             st['st_mode'] = stat.S_IFDIR | 0o774
             st['st_size'] = self.metadata_dict[subject]['size']
             st['st_ctime'] = st['st_mtime'] = st['st_atime'] = self.metadata_dict[subject]['date']
-            # create empty folder for each email in cache folder
-            # TODO: can I remove this?
-            # if not os.path.isdir(self._full_path(path)):
-            #     full_path = self._full_path(path)
-            #     os.makedirs(full_path)
         # attr for raw, html, plainTxt in email folder
         elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_CONTENT:
             subject = path.split('/')[2]
@@ -162,7 +158,7 @@ class GmailFS(Operations):
             # self.metadata_dict, subject_list, _ = self.gmail_client.get_email_list()
             return ['.', '..'] + list(self.metadata_dict.keys())
         elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_FOLDER:
-            return ['.', '..', 'raw', 'html', 'plaintxt']
+            return ['.', '..', 'raw', 'content.html', 'content.txt']
         else:
             dirents = ['.', '..']
             full_path = self._full_path(path)
@@ -251,36 +247,22 @@ class GmailFS(Operations):
                 else:
                     self.lru.move_to_end(inbox_folder_path)
 
-                # mapping fake address
                 path_tuple = full_path.split('/')
-                raw_path = '/'.join(path_tuple[:-1]) + '/raw'
-                # fetch MIME type email as base
-                if os.path.basename(full_path) == 'raw' or not os.path.exists(raw_path):
-                    email_subject_line = path_tuple[-2]
-                    email_id = self.metadata_dict[email_subject_line]["id"]
-                    mime = self.gmail_client.get_mime_message(email_id)
-                    with open(raw_path, "w+") as f:
-                        f.write(str(mime))
-                if os.path.basename(full_path) == 'html':
-                    with open(raw_path, "r") as f, open(full_path, "a+") as f_html:
-                        lines_list = f.readlines()
-                        is_html = False
-                        for line in lines_list[1:]:
-                            if is_html:
-                                if line.find('</html>') != -1:
-                                    index = line.find('</html>')
-                                    print(line)
-                                    f_html.write(line[:index + len('</html>')])
-                                    break
-                                else:
-                                    f_html.write(line)
-                            elif not is_html and line.find('<html') != -1:
-                                index = line.find('<html')
-                                f_html.write(line[index:])
-                                is_html = True
-
+                email_folder_name = path_tuple[-2]
+                email_id = self.metadata_dict[email_folder_name]["id"]
+                # add new email will fetch raw content
+                self.lru.add_new_email(email_id, email_folder_name)
+                raw_path = self._full_path("/inbox/" + str(email_folder_name) + "/raw")
+                p = Parser(raw_path, email_folder_name)
+                expected_type = path_tuple[-1]
+                if expected_type == 'content.html' and 'html' in p.type:
+                    full_path = p.get_str('html')
+                elif expected_type == 'content.html' or expected_type == 'content.txt':
+                    full_path = p.get_str('plain')
+                if not full_path:
+                    print("Error: Parser went wrong...")
+                    return -1
         fd = os.open(full_path, flags)
-
         return fd
 
     def create(self, path, mode, fi=None):
@@ -289,6 +271,7 @@ class GmailFS(Operations):
         return os.open(full_path, os.O_WRONLY | os.O_CREAT, mode)
 
     def read(self, path, length, offset, fh):
+
         print("read")
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)
