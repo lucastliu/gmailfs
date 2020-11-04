@@ -46,12 +46,19 @@ class GmailFS(Operations):
 
         cache_subject_list = subject_list[:self.lru_capacity] if self.lru_capacity < len(subject_list) else subject_list
         cache_subject_list.reverse()  # add to cache from old to new
+
+        for old_email in os.listdir(self.inbox_cache_directory):
+            if old_email not in cache_subject_list:
+                shutil.rmtree(os.path.join(self.inbox_cache_directory, old_email))
         for email_subject_line in cache_subject_list:
             if len(self.lru) >= self.lru_capacity:
                 break
             email_id = self.metadata_dict[email_subject_line]["id"]
-
-            self.lru.add_new_email(email_id, email_subject_line)
+            cache_email_folder = os.path.join(self.inbox_cache_directory, email_subject_line)
+            if os.path.exists(cache_email_folder):
+                self.lru.add(email_subject_line)
+            else:
+                self.lru.add_new_email(email_id, email_subject_line)
 
             # mime = self.gmail_client.get_mime_message(email_id)
             # relative_folder_path = "/inbox/" + email_subject_line
@@ -65,7 +72,7 @@ class GmailFS(Operations):
         return self
 
     def __exit__(self, type, value, traceback):
-        shutil.rmtree(self.inbox_cache_directory)
+        # shutil.rmtree(self.inbox_cache_directory)
         print("exit...")
     # Helpers
     # =======
