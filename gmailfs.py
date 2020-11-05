@@ -33,6 +33,7 @@ class GmailFS(Operations):
         self.lru = LRUCache(lru_capacity, self)
         self.lru_capacity = lru_capacity
         self.gmail_client.gmailfs = self
+        self.parsed_index = {}
 
     def __enter__(self):
         print("start...")
@@ -135,13 +136,21 @@ class GmailFS(Operations):
             st['st_size'] = self.metadata_dict[subject]['size']
             st['st_ctime'] = st['st_mtime'] = st['st_atime'] = self.metadata_dict[subject]['date']
         # attr for raw, html, plainTxt in email folder
-        elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_CONTENT and ('content.html' in path or 'content.txt' in path):
-            subject = path.split('/')[2]
-            if subject not in self.metadata_dict:
-                return st
+        elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_CONTENT:
+            path_tuple = path.split('/')
+            subject = path_tuple[2]
+            raw_path = self._full_path("/inbox/" + str(subject) + "/raw")
+            self.read_email_folder("/inbox/" + str(subject))
             st['st_mode'] = stat.S_IFREG | 0o444
-            st['st_size'] = self.metadata_dict[subject]['size']
             st['st_ctime'] = st['st_mtime'] = st['st_atime'] = self.metadata_dict[subject]['date']
+            if 'content.html' in path or 'content.txt' in path:
+                self.update_parsed_index(raw_path, subject)
+                if 'content.html' in path:
+                    st['st_size'] = self.parsed_index[subject]['html'][1]
+                elif 'content.txt' in path:
+                    st['st_size'] = self.parsed_index[subject]['html'][1]
+            else:
+                st['st_size'] = getattr(os.lstat(self._full_path(path)), 'st_size')
         # if we want to see the normal files in the cache folder
         else:
             full_path = self._full_path(path)
@@ -186,7 +195,7 @@ class GmailFS(Operations):
                 os.makedirs(inbox_folder_path)
                 # add to lru and delete the oldest entry
                 path_tuple = full_path.split('/')
-                email_folder_name = path_tuple[-1   ]
+                email_folder_name = path_tuple[-1]
                 email_id = self.metadata_dict[email_folder_name]["id"]
                 # add new email will fetch raw content
                 self.lru.add_new_email(email_id, email_folder_name)
@@ -254,6 +263,18 @@ class GmailFS(Operations):
             inbox_folder_path = m.group(1)
 
         if inbox_folder_path:
+            if os.path.exists(inbox_folder_path):
+                # update the entry order in lru
+                self.lru.move_to_end(inbox_folder_path)
+            else:
+                os.makedirs(inbox_folder_path)
+                # add to lru and delete the oldest entry
+                path_tuple = full_path.split('/')
+                email_folder_name = path_tuple[-1]
+                email_id = self.metadata_dict[email_folder_name]["id"]
+                # add new email will fetch raw content
+                self.lru.add_new_email(email_id, email_folder_name)
+
             # Fake file open redirect to raw file
             if os.path.basename(path) == 'content.html' or os.path.basename(path) == 'content.txt':
                 path_tuple = full_path.split('/')
@@ -268,32 +289,40 @@ class GmailFS(Operations):
         full_path = self._full_path(path)
         return os.open(full_path, os.O_WRONLY | os.O_CREAT, mode)
 
+    def update_parsed_index(self, raw_path, email_folder_name):
+        if email_folder_name not in self.parsed_index:
+            p = Parser(raw_path, email_folder_name)
+            self.parsed_index[email_folder_name] = {'html': None, 'plain': None}
+            self.parsed_index[email_folder_name]['html'] = p.get_str('html')
+            self.parsed_index[email_folder_name]['plain'] = p.get_str('plain')
+            self.parsed_index[email_folder_name]['type'] = p.type
+
+    #  If fake file, update the length and offset.
     def read(self, path, length, offset, fh):
         print("read")
-        org_length = length
-        # org_offset = offset
-        # print("path: " + path + "; length: " + str(length) + '; offset: ' + str(offset))
-        if self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_CONTENT:
-            if 'content.html' in path or 'content.txt' in path:
-                print("path: " + path + "; length: " + str(length) + '; offset: ' + str(offset))
-                path_tuple = path.split('/')
-                email_folder_name = path_tuple[-2]
-                raw_path = self._full_path("/inbox/" + str(email_folder_name) + "/raw")
-                p = Parser(raw_path, email_folder_name)
-                expected_type = path_tuple[-1]
-                if expected_type == 'content.html' and 'html' in p.type:
-                    print("get_str_html")
-                    offset, length =  p.get_str('html')
-                elif expected_type == 'content.html' or expected_type == 'content.txt':
-                    print("get_str_txt")
-                    offset, length =  p.get_str('plain')
-                else:
-                    print("Error: Parser went wrong...")
-                    return -1
-                print('change offset to ' + str(offset) + 'and length' + str(length))
-                raw_file_read_ret = self.read(raw_path, length, offset, fh)
-                assert len(raw_file_read_ret) == length
-                return self.read(raw_path, length, offset, fh)
+        if self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_CONTENT and ('content.html' in path or 'content.txt' in path):
+            print("path: " + path + "; length: " + str(length) + '; offset: ' + str(offset))
+
+            path_tuple = path.split('/')
+            email_folder_name = path_tuple[-2]
+            raw_path = self._full_path("/inbox/" + str(email_folder_name) + "/raw")
+            self.update_parsed_index(raw_path, email_folder_name)
+            expected_type = path_tuple[-1]
+            if expected_type == 'content.html' and 'html' in self.parsed_index[email_folder_name]['type']:
+                print("get_str_html")
+                _offset, _length = self.parsed_index[email_folder_name]['html']
+            elif expected_type == 'content.html' or expected_type == 'content.txt':
+                print("get_str_txt")
+                _offset, _length =  self.parsed_index[email_folder_name]['plain']
+            else:
+                print("Error: Parser went wrong...")
+                return -1
+            print('change offset to ' + str(_offset) + 'and length' + str(_length))
+            if length < _length:
+                return '' * length
+            length = _length
+            offset = _offset
+        print('Before lseek: change offset to ' + str(offset) + 'and length' + str(length))
         # set offset as start and length is the length
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)

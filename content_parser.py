@@ -25,7 +25,7 @@ class Parser:
         if "boundary=" in line:
             start = line.find('boundary="') + len('boundary="') + 1
             end = line[start:].find('"')
-            print(line[start:start + end])
+            # print(line[start:start + end])
             self.boundary = line[start:start + end]
 
     # file_type = 'html' or 'plain'
