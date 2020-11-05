@@ -111,24 +111,25 @@ class Gmail():
 
     def get_attachments(self, msg_id, store_dir):
         service, user_id = self.service, self.user_id
-        try:
-            message = service.users().messages().get(userId=user_id, id=msg_id).execute()
-            if message is None:
-                raise NonexistenceEmailError("Email attachments don't exist")
-            for part in message['payload']['parts']:
-                if (part['filename'] and part['body'] and part['body']['attachmentId']):
-                    attachment = service.users().messages().attachments().get(
-                        id=part['body']['attachmentId'], userId=user_id, messageId=msg_id).execute()
+        # try:
+        message = service.users().messages().get(userId=user_id, id=msg_id).execute()
+        if message is None or 'parts' not in message['payload']:
+            return
+            # raise NonexistenceEmailError("Email attachments don't exist")
+        for part in message['payload']['parts']:
+            if (part['filename'] and part['body'] and part['body']['attachmentId']):
+                attachment = service.users().messages().attachments().get(
+                    id=part['body']['attachmentId'], userId=user_id, messageId=msg_id).execute()
 
-                    file_data = base64.urlsafe_b64decode(
-                        attachment['data'].encode('utf-8'))
-                    path = ''.join([store_dir, part['filename']])
+                file_data = base64.urlsafe_b64decode(
+                    attachment['data'].encode('utf-8'))
+                path = ''.join([store_dir, part['filename']])
 
-                    f = open(path, 'wb')
-                    f.write(file_data)
-                    f.close()
-        except TypeError as error:
-            print('An error occurred: %s' % error)
+                f = open(path, 'wb')
+                f.write(file_data)
+                f.close()
+        # except TypeError as error:
+        #     print('An error occurred: %s' % error)
 
     def get_subject_and_metadata_with_id(self, email_id):
         m_meta = self.get_meta_message(email_id)

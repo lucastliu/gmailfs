@@ -131,16 +131,14 @@ class GmailFS(Operations):
             subject = path.split('/inbox/')[1]
             if subject not in self.metadata_dict:
                 return st
-            st['st_ctime'] = st['st_mtime'] = st['st_atime'] = time()
             st['st_mode'] = stat.S_IFDIR | 0o774
             st['st_size'] = self.metadata_dict[subject]['size']
             st['st_ctime'] = st['st_mtime'] = st['st_atime'] = self.metadata_dict[subject]['date']
         # attr for raw, html, plainTxt in email folder
-        elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_CONTENT:
+        elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_CONTENT and ('content.html' in path or 'content.txt' in path):
             subject = path.split('/')[2]
             if subject not in self.metadata_dict:
                 return st
-            st['st_ctime'] = st['st_mtime'] = st['st_atime'] = time()
             st['st_mode'] = stat.S_IFREG | 0o444
             st['st_size'] = self.metadata_dict[subject]['size']
             st['st_ctime'] = st['st_mtime'] = st['st_atime'] = self.metadata_dict[subject]['date']
@@ -158,7 +156,11 @@ class GmailFS(Operations):
             # self.metadata_dict, subject_list, _ = self.gmail_client.get_email_list()
             return ['.', '..'] + list(self.metadata_dict.keys())
         elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_FOLDER:
-            return ['.', '..', 'raw', 'content.html', 'content.txt']
+            fake_entries = ['.', '..', 'content.html', 'content.txt']
+            # read the raw and attachment in the cache folder
+            self.read_email_folder(path)
+            fake_entries.extend(os.listdir(self._full_path(path)))
+            return fake_entries
         else:
             dirents = ['.', '..']
             full_path = self._full_path(path)
@@ -168,6 +170,27 @@ class GmailFS(Operations):
                 filter(lambda s: s == "inbox", existing_file_list)
                 dirents.extend(os.listdir(full_path))
             return dirents
+
+    def read_email_folder(self, path):
+        full_path = self._full_path(path)
+        inbox_folder_path = None
+        m = re.search(rf"(^.*\/src\/inbox\/.*)", full_path)
+        if m:
+            inbox_folder_path = m.group(1)
+        if inbox_folder_path:
+            # if email folder exist
+            if os.path.exists(inbox_folder_path):
+                # update the entry order in lru
+                self.lru.move_to_end(inbox_folder_path)
+            else:
+                os.makedirs(inbox_folder_path)
+                # add to lru and delete the oldest entry
+                path_tuple = full_path.split('/')
+                email_folder_name = path_tuple[-1   ]
+                email_id = self.metadata_dict[email_folder_name]["id"]
+                # add new email will fetch raw content
+                self.lru.add_new_email(email_id, email_folder_name)
+            # At this point, we promise the raw and attachment must in cache folder
 
     def readlink(self, path):
         print("readlink")
@@ -231,28 +254,12 @@ class GmailFS(Operations):
             inbox_folder_path = m.group(1)
 
         if inbox_folder_path:
-            if os.path.exists(full_path):
-                # update the entry order in lru
-                self.lru.move_to_end(inbox_folder_path)
-            else:
-                if not os.path.exists(inbox_folder_path):
-                    os.makedirs(inbox_folder_path)
-
-                    # add to lru and delete the oldest entry
-                    path_tuple = full_path.split('/')
-                    email_folder_name = path_tuple[-2]
-                    email_id = self.metadata_dict[email_folder_name]["id"]
-                    # add new email will fetch raw content
-                    self.lru.add_new_email(email_id, email_folder_name)
-                else:
-                    self.lru.move_to_end(inbox_folder_path)
-
+            # Fake file open redirect to raw file
+            if os.path.basename(path) == 'content.html' or os.path.basename(path) == 'content.txt':
                 path_tuple = full_path.split('/')
                 email_folder_name = path_tuple[-2]
-                email_id = self.metadata_dict[email_folder_name]["id"]
-                # add new email will fetch raw content
-                self.lru.add_new_email(email_id, email_folder_name)
                 full_path = self._full_path("/inbox/" + str(email_folder_name) + "/raw")
+
         fd = os.open(full_path, flags)
         return fd
 

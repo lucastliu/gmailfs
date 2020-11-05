@@ -59,6 +59,7 @@ class LRUCache(OrderedDict):
             os.makedirs(folder_path)
         raw_path = self.gmailfs._full_path(relative_folder_path + "/raw")
         with open(raw_path, "w+") as f:
+            self.gmailfs.gmail_client.get_attachments(email_id, self.gmailfs._full_path(relative_folder_path + "/"))
             f.write(str(mime))
 
         # add to metadata cache
