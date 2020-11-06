@@ -43,13 +43,13 @@ Create a new pull subscription to the topic established above for gmail updates.
 ##### Create the Configuration File
 
 Within the project root, create a new file named `config.ini`
-Fill the contents according to this template, replacing the fields with your information:
+Fill the contents according to this template, replacing the your fields with your information:
 
 ```
 [GMAIL]
-email = your_account@gmail.com
-topic = projects/your_project_full_ID/topics/your_topic_name
+topic = projects/your_project_full_ID_123/topics/your_topic_name
 subname = your_subscription_name
+projectid = your_project_ID_123
 ```
 
 
