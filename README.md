@@ -2,11 +2,14 @@
 filesystem based interface to interact with gmail
 
 
+
 ## Getting Started:
+
+Note: intended for Linux distributions. Tested on Ubuntu 20.04
+
 clone the repository with `git clone git@github.com:lucastliu/gmailfs.git`
 
 Navigate to the repository on your computer `cd gmailfs`
-
 
 install dependencies
 `sudo pip3 --upgrade install -r requirements.txt`
@@ -14,15 +17,50 @@ install dependencies
 `sudo pip3 install -r requirements.txt`
 
 
-Make two directories inside gmailfs repository root
+### Google Account Pre-requisite Steps
+
+Various credential details will need to be noted and later added to a configuration file throughout this process.
+
+[Create a Google account](https://accounts.google.com/signup/v2/webcreateaccount?hl=en&flowName=GlifWebSignIn&flowEntry=SignUp), which will give you a gmail email address to use.
+
+Now we must give gmail permission to enable the API with our account.
+
+Complete Step 1 in this [tutorial](https://developers.google.com/gmail/api/quickstart/js) to create a new project and enable the Gmail API. Take note of the project name and ID. Place the created `credentials.json` file into the root of the gmailfs project directory.
+
+The [Google cloud console](https://console.cloud.google.com) is your place to add and modify features which will allow gmailfs to auto-update with your email contents.
+
+Complete the first portion of this guide, [Initial Cloud Pub/Sub Setup](https://developers.google.com/gmail/api/guides/push). Note the topic name and ID.
+
+Create a new `OAuth 2.0 Client ID` under the `API` section of the `Google Cloud Console`. Download the json credentials, saving the file as `project_key.json` in the root directory of the gmailfs project.
+
+#### Multiple Instances
+
+If you intend to have multiple instances of gmailfs with the same gmail account, you will need to complete the steps in this section for each new instance.
+
+Create a new pull subscription to the topic established above for gmail updates. Note the name of the subscription.
+
+
+##### Create the Configuration File
+
+Within the project root, create a new file named `config.ini`
+Fill the contents according to this template, replacing the fields with your information:
+
 ```
-mkdir client
-mkdir cache
+[GMAIL]
+email = your_account@gmail.com
+topic = projects/your_project_full_ID/topics/your_topic_name
+subname = your_subscription_name
 ```
 
-Run gmailfs `python3 ./gmailfs.py ./cache ./client`
 
-Because currently the gmailfs runs in the foreground, we need to change to another terminal window. After the gmailfs mounts to the ~/client directory, open a new terminal window and again navigate to gmailfs
+### Run gmailfs
+
+
+Run gmailfs with `python3 ./gmailfs.py`
+
+The first time this program is run, you should be redirected to a browser to authenticate access permissions for this application. You should only need to do this once. A `token.pickle` file will be created for future accesses.
+
+Because gmailfs runs in the foreground, we need to change to another terminal window. Open a new terminal window and again navigate to the gmailfs directory
 
 It may be necessary to run your new terminal as an admin
 
@@ -72,7 +110,7 @@ To check the email you just sent, change to the ~/client/sent directory
 `ls`
 
 ### Close gmailfs
-To stop the program, press ctrl-c in the terminal window which runs `python3 ./gmailfs.py ~/cache ~/client`
+To stop the program, press ctrl-c one time in the terminal window which ran `python3 ./gmailfs.py`. Wait a few seconds.
 
 After program termination, you can still view the contents under the ~/cache folder, but the contents will not update anymore.
 
