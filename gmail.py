@@ -237,12 +237,13 @@ class Gmail():
                     function(msg)
 
         def lru_add(msg):
-            print('--- NEW EMAIL ADDED ---')
-            self.gmailfs.lru.add_new_email(msg['message']['id'])
+            if('INBOX' in msg['message']['labelIds']):
+                self.gmailfs.lru.add_new_email(msg['message']['id'])
 
         def lru_remove(msg):
-            self.gmailfs.lru.delete_message(msg['message']['id'])
-        
+            if('INBOX' in msg['message']['labelIds']):
+                self.gmailfs.lru.delete_message(msg['message']['id'])
+
         def isMovetoInbox(msg):
             if('INBOX' in msg['labelIds']):
                 print('added to inbox')
@@ -258,9 +259,8 @@ class Gmail():
                            startHistoryId=startHistoryId).execute()['history']
 
             for history in histories:
-                print("NH ------------------------")
-                print(history)
-
+                #print("NH ------------------------")
+                #print(history)
                 parse(history, 'messagesAdded', lru_add)
                 parse(history, 'messagesDeleted', lru_remove)
                 parse(history, 'labelsAdded', isMovetoInbox)
