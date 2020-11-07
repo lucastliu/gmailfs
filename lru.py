@@ -4,6 +4,7 @@ import os
 import threading
 
 from gmail import NonexistenceEmailError
+import time
 
 class LRUCache(OrderedDict):
 
@@ -66,6 +67,9 @@ class LRUCache(OrderedDict):
         print("[cache] add an email to metadata cache")
         self.add(folder_path)
         subject, meta = self.gmailfs.gmail_client.get_subject_and_metadata_with_id(email_id)
+        now = time.time()
+        print("Diff: {} seconds".format(now - meta['date']))
+
         key = subject + " ID " + meta['id']
         assert key == email_folder_name
         self.gmailfs.metadata_dict[key] = meta

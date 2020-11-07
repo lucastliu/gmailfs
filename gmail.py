@@ -30,6 +30,8 @@ import os
 
 import configparser
 
+import time
+
 
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "project_key.json"
@@ -92,7 +94,7 @@ class Gmail():
         try:
             return service.users().messages().get(userId=user_id, id=msg_id, format='metadata').execute()
         except Exception as error:
-            print('An error occurred: %s' % error)
+            print('An error occurred during get meta message: %s' % error)
 
     def get_mime_message(self, msg_id):
         service, user_id = self.service, self.user_id
@@ -235,6 +237,7 @@ class Gmail():
                     function(msg)
 
         def lru_add(msg):
+            print('--- NEW EMAIL ADDED ---')
             self.gmailfs.lru.add_new_email(msg['message']['id'])
 
         def lru_remove(msg):
@@ -255,8 +258,8 @@ class Gmail():
                            startHistoryId=startHistoryId).execute()['history']
 
             for history in histories:
-                #print("NH ------------------------")
-                #print(history)
+                print("NH ------------------------")
+                print(history)
 
                 parse(history, 'messagesAdded', lru_add)
                 parse(history, 'messagesDeleted', lru_remove)
