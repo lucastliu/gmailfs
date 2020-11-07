@@ -42,7 +42,6 @@ class LRUCache(OrderedDict):
         if to_delete:
             shutil.rmtree(to_delete)
 
-    # email_folder_name
     def add_new_email(self, email_id, expected_email_folder_name=None):
         print("[cache] add an email to lru")
         try:
@@ -68,7 +67,10 @@ class LRUCache(OrderedDict):
         subject, meta = self.gmailfs.gmail_client.get_subject_and_metadata_with_id(email_id)
         key = subject + " ID " + meta['id']
         assert key == email_folder_name
+        if expected_email_folder_name:
+            assert expected_email_folder_name == email_folder_name
         self.gmailfs.metadata_dict[key] = meta
+        self.gmailfs.subject_by_id[email_id] = key
 
     def delete_message(self, email_id):
         print("[cache] delete an email from lru")
@@ -80,4 +82,5 @@ class LRUCache(OrderedDict):
         # delete from metadata cache
         print("[cache] delete an email from metadata cache")
         del self.gmailfs.metadata_dict[self.gmailfs.subject_by_id[email_id]]
+        del self.gmailfs.subject_by_id[email_id]
 
