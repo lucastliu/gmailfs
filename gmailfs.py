@@ -148,7 +148,7 @@ class GmailFS(Operations):
                 if 'content.html' in path:
                     st['st_size'] = self.parsed_index[subject]['html'][1]
                 elif 'content.txt' in path:
-                    st['st_size'] = self.parsed_index[subject]['html'][1]
+                    st['st_size'] = self.parsed_index[subject]['plain'][1]
             else:
                 st['st_size'] = getattr(os.lstat(self._full_path(path)), 'st_size')
         # if we want to see the normal files in the cache folder
@@ -309,10 +309,8 @@ class GmailFS(Operations):
             self.update_parsed_index(raw_path, email_folder_name)
             expected_type = path_tuple[-1]
             if expected_type == 'content.html' and 'html' in self.parsed_index[email_folder_name]['type']:
-                print("get_str_html")
                 _offset, _length = self.parsed_index[email_folder_name]['html']
             elif expected_type == 'content.html' or expected_type == 'content.txt':
-                print("get_str_txt")
                 _offset, _length =  self.parsed_index[email_folder_name]['plain']
             else:
                 print("Error: Parser went wrong...")
