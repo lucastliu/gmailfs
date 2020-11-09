@@ -107,7 +107,14 @@ class Gmail():
             msg_str = base64.urlsafe_b64decode(
                 message['raw'].encode("utf-8")).decode("utf-8")
             mime_msg = email.message_from_string(msg_str)
-
+            if mime_msg.is_multipart():
+                for part in mime_msg.walk():
+                    if part.get_content_type() == 'text/plain' or  part.get_content_type() == 'text/html':
+                        if part.get('Content-Transfer-Encoding') == 'base64':
+                            part.set_payload(base64.urlsafe_b64decode(
+                                part.get_payload().encode("utf-8")).decode("utf-8"))
+                    if part.get_content_disposition():
+                        part.set_payload("Please find attachment in the email folder.")
             return mime_msg
         except googleapiclient.errors.HttpError as http_error:
             raise NonexistenceEmailError(f"Email {msg_id} doesn't exist")
@@ -317,7 +324,7 @@ def test():
     #     email_list.append(m_meta)
     #     email_mime.append(m_mime)
 
-    # print(email_list)
+    # print(email_mime)
 
 
 if __name__ == '__main__':
