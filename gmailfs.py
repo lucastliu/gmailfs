@@ -139,19 +139,12 @@ class GmailFS(Operations):
         elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_CONTENT:
             path_tuple = path.split('/')
             subject = path_tuple[2]
-            raw_path = self._full_path("/inbox/" + str(subject) + "/raw")
             self.read_email_folder("/inbox/" + str(subject))
             st['st_mode'] = stat.S_IFREG | 0o444
             st['st_ctime'] = st['st_mtime'] = st['st_atime'] = self.metadata_dict[subject]['date']
-            st['st_blksize'] = 1
-            if 'content.html' in path or 'content.txt' in path:
-                self.update_parsed_index(raw_path, subject)
-                if 'content.html' in path:
-                    st['st_size'] = self.parsed_index[subject]['html'][1]
-                elif 'content.txt' in path:
-                    st['st_size'] = self.parsed_index[subject]['plain'][1]
-            else:
-                st['st_size'] = getattr(os.lstat(self._full_path(path)), 'st_size')
+            full_path = self._full_path(path)
+            full_st = os.lstat(full_path)
+            st['st_size'] = getattr(full_st, 'st_size')
         # if we want to see the normal files in the cache folder
         else:
             full_path = self._full_path(path)
@@ -166,11 +159,11 @@ class GmailFS(Operations):
             # self.metadata_dict, subject_list, _ = self.gmail_client.get_email_list()
             return ['.', '..'] + list(self.metadata_dict.keys())
         elif self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_FOLDER:
-            fake_entries = ['.', '..', 'content.html', 'content.txt']
+            entries = ['.', '..']
             # read the raw and attachment in the cache folder
             self.read_email_folder(path)
-            fake_entries.extend(os.listdir(self._full_path(path)))
-            return fake_entries
+            entries.extend(os.listdir(self._full_path(path)))
+            return entries
         else:
             dirents = ['.', '..']
             full_path = self._full_path(path)
@@ -276,12 +269,6 @@ class GmailFS(Operations):
                 # add new email will fetch raw content
                 self.lru.add_new_email(email_id, email_folder_name)
 
-            # Fake file open redirect to raw file
-            if os.path.basename(path) == 'content.html' or os.path.basename(path) == 'content.txt':
-                path_tuple = full_path.split('/')
-                email_folder_name = path_tuple[-2]
-                full_path = self._full_path("/inbox/" + str(email_folder_name) + "/raw")
-
         fd = os.open(full_path, flags)
         return fd
 
@@ -289,39 +276,12 @@ class GmailFS(Operations):
         print("create")
         full_path = self._full_path(path)
         return os.open(full_path, os.O_WRONLY | os.O_CREAT, mode)
-
-    def update_parsed_index(self, raw_path, email_folder_name):
-        if email_folder_name not in self.parsed_index:
-            p = Parser(raw_path, email_folder_name)
-            self.parsed_index[email_folder_name] = {'html': None, 'plain': None}
-            self.parsed_index[email_folder_name]['html'] = p.get_str('html')
-            self.parsed_index[email_folder_name]['plain'] = p.get_str('plain')
-            self.parsed_index[email_folder_name]['type'] = p.type
-
     #  If fake file, update the length and offset.
     def read(self, path, length, offset, fh):
         print("read")
-        if self.path_type(path) == GmailFS.PATH_TYPE.EMAIL_CONTENT and ('content.html' in path or 'content.txt' in path):
-            print("path: " + path + "; length: " + str(length) + '; offset: ' + str(offset))
-
-            path_tuple = path.split('/')
-            email_folder_name = path_tuple[-2]
-            raw_path = self._full_path("/inbox/" + str(email_folder_name) + "/raw")
-            self.update_parsed_index(raw_path, email_folder_name)
-            expected_type = path_tuple[-1]
-            if expected_type == 'content.html' and 'html' in self.parsed_index[email_folder_name]['type']:
-                _offset, _length = self.parsed_index[email_folder_name]['html']
-            elif expected_type == 'content.html' or expected_type == 'content.txt':
-                _offset, _length =  self.parsed_index[email_folder_name]['plain']
-            else:
-                print("Error: Parser went wrong...")
-                return -1
-            offset += _offset
-            print('change offset to ' + str(offset) + ' and length ' + str(length))
         # set offset as start and length is the length
         os.lseek(fh, offset, os.SEEK_SET)
         ret = os.read(fh, length)
-        print("actual return length: " + str(len(ret)))
         return ret
 
     def write(self, path, buf, offset, fh):

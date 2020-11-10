@@ -111,13 +111,22 @@ class Gmail():
             msg_str = base64.urlsafe_b64decode(
                 message['raw'].encode("utf-8")).decode("utf-8")
             mime_msg = email.message_from_string(msg_str)
+
+            # Parse into html, text, and other parts
+            html = ''
+            text = ''
             if mime_msg.is_multipart():
                 for part in mime_msg.walk():
                     if part.get_content_type() == 'text/plain' or  part.get_content_type() == 'text/html':
-                        part.set_payload(part.get_payload(decode=True).decode('utf-8'))
+                        parsed = part.get_payload(decode=True).decode('utf-8')
+                        if part.get_content_type() == 'text/plain':
+                            text = parsed
+                        if part.get_content_type() == 'text/html':
+                            html = parsed
+                        part.set_payload("Please find separate parsed file.")
                     if part.get_content_disposition():
                         part.set_payload("Please find attachment in the email folder.")
-            return mime_msg
+            return mime_msg, html, text
         except googleapiclient.errors.HttpError as http_error:
             raise NonexistenceEmailError(f"Email {msg_id} doesn't exist")
         except Exception as error:
