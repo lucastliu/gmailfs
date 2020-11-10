@@ -143,6 +143,7 @@ class GmailFS(Operations):
             self.read_email_folder("/inbox/" + str(subject))
             st['st_mode'] = stat.S_IFREG | 0o444
             st['st_ctime'] = st['st_mtime'] = st['st_atime'] = self.metadata_dict[subject]['date']
+            st['st_blksize'] = 1
             if 'content.html' in path or 'content.txt' in path:
                 self.update_parsed_index(raw_path, subject)
                 if 'content.html' in path:
@@ -315,15 +316,13 @@ class GmailFS(Operations):
             else:
                 print("Error: Parser went wrong...")
                 return -1
-            print('change offset to ' + str(_offset) + 'and length' + str(_length))
-            if length < _length:
-                return '' * length
-            length = _length
-            offset = _offset
-        print('Before lseek: change offset to ' + str(offset) + 'and length' + str(length))
+            offset += _offset
+            print('change offset to ' + str(offset) + ' and length ' + str(length))
         # set offset as start and length is the length
         os.lseek(fh, offset, os.SEEK_SET)
-        return os.read(fh, length)
+        ret = os.read(fh, length)
+        print("actual return length: " + str(len(ret)))
+        return ret
 
     def write(self, path, buf, offset, fh):
         print("write")
