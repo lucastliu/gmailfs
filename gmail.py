@@ -86,6 +86,13 @@ class Gmail():
         self.start_autoupdate_service()
 
     ### util functions
+
+    def trash_message(self, msg_id):
+        try:
+            return self.service.users().messages().trash(userId=self.user_id, id=msg_id).execute(_auth.authorized_http(self.creds))
+        except Exception as error:
+            print('An error occurred during trash: %s' % error)
+
     def get_messages(self, label=None):
         service, user_id = self.service, self.user_id
         try:
