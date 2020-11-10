@@ -3,6 +3,7 @@ import pickle
 import os.path
 
 import googleapiclient
+from googleapiclient import _auth
 import sys
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -31,6 +32,7 @@ import os
 import configparser
 
 import time
+import traceback
 
 
 
@@ -69,6 +71,8 @@ class Gmail():
 
         self.service = build('gmail', 'v1', credentials=creds)
         self.user_id = "me"
+        self.creds = creds
+        self.http = googleapiclient._auth.authorized_http(self.creds)
 
         self.config = configparser.ConfigParser()
         self.config.sections()
@@ -85,14 +89,14 @@ class Gmail():
     def get_messages(self, label=None):
         service, user_id = self.service, self.user_id
         try:
-            return service.users().messages().list(userId=user_id, labelIds=label).execute()
+            return service.users().messages().list(userId=user_id, labelIds=label).execute(_auth.authorized_http(self.creds))
         except Exception as error:
             print('An error occurred: %s' % error)
 
     def get_meta_message(self, msg_id):
         service, user_id = self.service, self.user_id
         try:
-            return service.users().messages().get(userId=user_id, id=msg_id, format='metadata').execute()
+            return service.users().messages().get(userId=user_id, id=msg_id, format='metadata').execute(_auth.authorized_http(self.creds))
         except Exception as error:
             print('An error occurred during get meta message: %s' % error)
 
@@ -100,14 +104,21 @@ class Gmail():
         service, user_id = self.service, self.user_id
         try:
             message = service.users().messages().get(userId=user_id, id=msg_id,
-                                                     format='raw').execute()
+                                                     format='raw').execute(_auth.authorized_http(self.creds))
             if message is None:
                 raise NonexistenceEmailError(f"Email {msg_id} doesn't exist")
             print('Message snippet: %s' % message['snippet'])
             msg_str = base64.urlsafe_b64decode(
                 message['raw'].encode("utf-8")).decode("utf-8")
             mime_msg = email.message_from_string(msg_str)
-
+            if mime_msg.is_multipart():
+                for part in mime_msg.walk():
+                    if part.get_content_type() == 'text/plain' or  part.get_content_type() == 'text/html':
+                        if part.get('Content-Transfer-Encoding') == 'base64':
+                            part.set_payload(base64.urlsafe_b64decode(
+                                part.get_payload().encode("utf-8")).decode("utf-8"))
+                    if part.get_content_disposition():
+                        part.set_payload("Please find attachment in the email folder.")
             return mime_msg
         except googleapiclient.errors.HttpError as http_error:
             raise NonexistenceEmailError(f"Email {msg_id} doesn't exist")
@@ -117,14 +128,14 @@ class Gmail():
     def get_attachments(self, msg_id, store_dir):
         service, user_id = self.service, self.user_id
         # try:
-        message = service.users().messages().get(userId=user_id, id=msg_id).execute()
+        message = service.users().messages().get(userId=user_id, id=msg_id).execute(_auth.authorized_http(self.creds))
         if message is None or 'parts' not in message['payload']:
             return
             # raise NonexistenceEmailError("Email attachments don't exist")
         for part in message['payload']['parts']:
             if (part['filename'] and part['body'] and part['body']['attachmentId']):
                 attachment = service.users().messages().attachments().get(
-                    id=part['body']['attachmentId'], userId=user_id, messageId=msg_id).execute()
+                    id=part['body']['attachmentId'], userId=user_id, messageId=msg_id).execute(_auth.authorized_http(self.creds))
 
                 file_data = base64.urlsafe_b64decode(
                     attachment['data'].encode('utf-8'))
@@ -215,7 +226,7 @@ class Gmail():
             'topicName': self.topic
         }
 
-        response = self.service.users().watch(userId='me', body=request).execute()
+        response = self.service.users().watch(userId='me', body=request).execute(_auth.authorized_http(self.creds))
         self.historyId = response['historyId']
         print('Starting History ID: {}'.format(self.historyId))
 
@@ -238,10 +249,12 @@ class Gmail():
 
         def lru_add(msg):
             if('INBOX' in msg['message']['labelIds']):
+                print('added to inbox')
                 self.gmailfs.lru.add_new_email(msg['message']['id'])
 
         def lru_remove(msg):
             if('INBOX' in msg['message']['labelIds']):
+                print('removed from inbox')
                 self.gmailfs.lru.delete_message(msg['message']['id'])
 
         def isMovetoInbox(msg):
@@ -256,19 +269,20 @@ class Gmail():
         try:
             histories = self.service.users().history()\
                      .list(userId='me',
-                           startHistoryId=startHistoryId).execute()['history']
-
-            for history in histories:
-                #print("NH ------------------------")
-                #print(history)
-                parse(history, 'messagesAdded', lru_add)
-                parse(history, 'messagesDeleted', lru_remove)
-                parse(history, 'labelsAdded', isMovetoInbox)
-                parse(history, 'labelsRemoved', isRemoveFromInbox)
+                           startHistoryId=startHistoryId).execute(_auth.authorized_http(self.creds))
+            if(histories and 'history' in histories):
+                histories = histories['history']
+                for history in histories:
+                    #print("NH ------------------------")
+                    #print(history)
+                    parse(history, 'messagesAdded', lru_add)
+                    parse(history, 'messagesDeleted', lru_remove)
+                    parse(history, 'labelsAdded', isMovetoInbox)
+                    parse(history, 'labelsRemoved', isRemoveFromInbox)
 
         except Exception as error:
             print('An error occurred during autoupdate: %s' % error)
-            print(sys.exc_info()[2])
+            print(traceback.print_exc())
 
     def listen_for_updates(self):
         project_id = self.projectID
@@ -317,7 +331,7 @@ def test():
     #     email_list.append(m_meta)
     #     email_mime.append(m_mime)
 
-    # print(email_list)
+    # print(email_mime)
 
 
 if __name__ == '__main__':
