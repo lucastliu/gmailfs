@@ -5,7 +5,6 @@ from time import time
 import errno
 from enum import Enum
 from lru import LRUCache
-from content_parser import Parser
 import threading
 import os
 import shutil
