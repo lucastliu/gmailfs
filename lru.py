@@ -15,8 +15,8 @@ class LRUCache(OrderedDict):
         self.gmailfs = gmailfs
 
     def _get_mime_and_folder_name(self, email_id):
-        mime = self.gmailfs.gmail_client.get_mime_message(email_id)
-        return mime, mime["Subject"] + " ID " + email_id
+        mime, html, text = self.gmailfs.gmail_client.get_mime_message(email_id)
+        return mime, html, text, mime["Subject"] + " ID " + email_id
 
     def touch(self, key):
         with self.lock:
@@ -50,7 +50,7 @@ class LRUCache(OrderedDict):
         with self.lock:
             print("[cache] add an email to lru")
             try:
-                mime, email_folder_name = self._get_mime_and_folder_name(email_id)
+                mime, html, text, email_folder_name = self._get_mime_and_folder_name(email_id)
             except NonexistenceEmailError:
                 return
 
@@ -61,10 +61,14 @@ class LRUCache(OrderedDict):
             folder_path = self.gmailfs._full_path(relative_folder_path)
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
-            raw_path = self.gmailfs._full_path(relative_folder_path + "/raw")
+            raw_path = self.gmailfs._full_path(relative_folder_path + "/mime_processed")
+            self.gmailfs.gmail_client.get_attachments(email_id, self.gmailfs._full_path(relative_folder_path + "/"))
             with open(raw_path, "w+") as f:
-                self.gmailfs.gmail_client.get_attachments(email_id, self.gmailfs._full_path(relative_folder_path + "/"))
                 f.write(str(mime))
+            with open(self.gmailfs._full_path(relative_folder_path + "/content.html"), "w+") as f:
+                f.write(str(html))
+            with open(self.gmailfs._full_path(relative_folder_path + "/content.txt"), "w+") as f:
+                f.write(str(text))
 
             # add to metadata cache
             print("[cache] add an email to metadata cache")
