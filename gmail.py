@@ -317,21 +317,21 @@ class Gmail():
 
 def test():
     client = Gmail()
-    # lock = Lock()
-    # client.listen_for_updates(lock)
-    raw = client.get_messages()
-    messages = raw['messages']
-    email_list = []
-    email_mime = []
-    for m in messages:
-        if m['id'] == '17519a4cd78744f9':
-            # m_meta = client.get_meta_message(m['id'])
-            m_mime = client.get_mime_message(m["id"])
-            # email_list.append(m_meta)
-            email_mime.append(m_mime)
-            print(m_mime)
-
-    # print(email_mime)
+    lock = Lock()
+    client.listen_for_updates(lock)
+    # raw = client.get_messages()
+    # messages = raw['messages']
+    # email_list = []
+    # email_mime = []
+    # for m in messages:
+    #     if m['id'] == '17519a4cd78744f9':
+    #         # m_meta = client.get_meta_message(m['id'])
+    #         m_mime = client.get_mime_message(m["id"])
+    #         # email_list.append(m_meta)
+    #         email_mime.append(m_mime)
+    #         print(m_mime)
+    #
+    # # print(email_mime)
 
 
 if __name__ == '__main__':
