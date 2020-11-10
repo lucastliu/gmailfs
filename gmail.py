@@ -114,9 +114,7 @@ class Gmail():
             if mime_msg.is_multipart():
                 for part in mime_msg.walk():
                     if part.get_content_type() == 'text/plain' or  part.get_content_type() == 'text/html':
-                        if part.get('Content-Transfer-Encoding') == 'base64':
-                            part.set_payload(base64.urlsafe_b64decode(
-                                part.get_payload().encode("utf-8")).decode("utf-8"))
+                        part.set_payload(part.get_payload(decode=True).decode('utf-8'))
                     if part.get_content_disposition():
                         part.set_payload("Please find attachment in the email folder.")
             return mime_msg
@@ -319,17 +317,19 @@ class Gmail():
 
 def test():
     client = Gmail()
-    lock = Lock()
-    client.listen_for_updates(lock)
-    # raw = client.get_messages()
-    # messages = raw['messages']
-    # email_list = []
-    # email_mime = []
-    # for m in messages:
-    #     m_meta = client.get_meta_message(m['id'])
-    #     m_mime = client.get_mime_message(m["id"])
-    #     email_list.append(m_meta)
-    #     email_mime.append(m_mime)
+    # lock = Lock()
+    # client.listen_for_updates(lock)
+    raw = client.get_messages()
+    messages = raw['messages']
+    email_list = []
+    email_mime = []
+    for m in messages:
+        if m['id'] == '17519a4cd78744f9':
+            # m_meta = client.get_meta_message(m['id'])
+            m_mime = client.get_mime_message(m["id"])
+            # email_list.append(m_meta)
+            email_mime.append(m_mime)
+            print(m_mime)
 
     # print(email_mime)
 
