@@ -92,6 +92,7 @@ start with the structure shown below. Note: You must have a newline after the me
 ```
 Subject: email example
 To: whoever.it.is@duke.edu
+File: /absolute/path/to/attachment/
 Message:
 first line,
 second line
@@ -108,6 +109,9 @@ If the format of the draft is incorrect, the email draft will be deleted, and no
 To check the email you just sent, change to the ~/client/sent directory
 `cd /client/sent`
 `ls`
+
+### Delete an Email
+To delete an email, cd inbox, rm -r email_folder_name
 
 ### Close gmailfs
 To stop the program, press ctrl-c one time in the terminal window which ran `python3 ./gmailfs.py`. Wait a few seconds.
