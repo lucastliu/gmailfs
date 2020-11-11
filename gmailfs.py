@@ -154,6 +154,7 @@ class GmailFS(Operations):
         return st
 
     def readdir(self, path, fh):
+        print("readdir")
         if path == '/inbox':
             # self.metadata_dict, subject_list, _ = self.gmail_client.get_email_list()
             return ['.', '..'] + list(self.metadata_dict.keys())
@@ -183,7 +184,7 @@ class GmailFS(Operations):
             # if email folder exist
             if os.path.exists(inbox_folder_path):
                 # update the entry order in lru
-                self.lru.move_to_end(inbox_folder_path)
+                self.lru.touch(inbox_folder_path)
             else:
                 os.makedirs(inbox_folder_path)
                 # add to lru and delete the oldest entry
@@ -210,11 +211,16 @@ class GmailFS(Operations):
     def rmdir(self, path):
         print("rmdir")
         full_path = self._full_path(path)
-        return os.rmdir(full_path)
+        m = re.search(rf"^.*\/{self.client}\/inbox\/(.*)", full_path)
+        if m:
+            subject = m.group(1)
+            message_metadata = self.metadata_dict[subject]
+            self.gmail_client.trash_message(message_metadata["id"])
+        return 0
 
     def mkdir(self, path, mode):
         print("mkdir")
-        return os.mkdir(self._full_path(path), mode)
+        return 0
 
     def statfs(self, path):
         print("statfs")
@@ -226,8 +232,9 @@ class GmailFS(Operations):
                                                          'f_frsize', 'f_namemax'))
 
     def unlink(self, path):
-        print("unlink")
-        return os.unlink(self._full_path(path))
+        print("unlink") # ignore all unlink
+        return 0
+        # return os.unlink(self._full_path(path))
 
     def symlink(self, name, target):
         return os.symlink(target, self._full_path(name))
@@ -258,7 +265,7 @@ class GmailFS(Operations):
         if inbox_folder_path:
             if os.path.exists(inbox_folder_path):
                 # update the entry order in lru
-                self.lru.move_to_end(inbox_folder_path)
+                self.lru.touch(inbox_folder_path)
             else:
                 os.makedirs(inbox_folder_path)
                 # add to lru and delete the oldest entry

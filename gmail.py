@@ -231,6 +231,8 @@ class Gmail():
         if len(vals) == 4:
             email_draft = gmail_func.send_email.create_message(*vals)
         else:
+            vals.append(vals[3])
+            del vals[3]
             email_draft = gmail_func.send_email.create_message_with_attachment(*vals)
         gmail_func.send_email.send_message(self.service, self.user_id, email_draft)
 
