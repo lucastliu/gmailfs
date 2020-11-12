@@ -10,6 +10,7 @@ import os
 import shutil
 import sys
 import re
+import configparser
 
 # from multiprocessing import Process, Lock
 
@@ -351,13 +352,16 @@ def func1(lock):
 
 
 if __name__ == '__main__':
-
+    config = configparser.ConfigParser()
+    config.sections()
+    config.read('config.ini')
+    cache_capacity = int(config['GMAIL']['cache_capacity']);
     if not os.path.exists("./client"):
         os.makedirs("./client")
     if not os.path.exists("./src"):
         os.makedirs("./src")
     try:
-        with GmailFS("./src", 10) as G:
+        with GmailFS("./src", cache_capacity) as G:
             kwa = {'nothreads': True, 'foreground': True}
             t1 = threading.Thread(target=FUSE, args=(G, "./client"), kwargs=kwa)
             t1.daemon = True
