@@ -355,7 +355,11 @@ if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.sections()
     config.read('config.ini')
-    cache_capacity = int(config['GMAIL']['cache_capacity']);
+
+    if 'cache_capacity' in config['GMAIL']:
+        cache_capacity = int(config['GMAIL']['cache_capacity'])
+    else:
+        cache_capacity = 10
     if not os.path.exists("./client"):
         os.makedirs("./client")
     if not os.path.exists("./src"):
