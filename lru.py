@@ -97,6 +97,7 @@ class LRUCache(OrderedDict):
 
             # delete from metadata cache
             print("[cache] delete an email from metadata cache")
-            del self.gmailfs.metadata_dict[self.gmailfs.subject_by_id[email_id]]
+            if self.gmailfs.subject_by_id[email_id] in self.gmailfs.metadata_dict:
+                del self.gmailfs.metadata_dict[self.gmailfs.subject_by_id[email_id]]
             del self.gmailfs.subject_by_id[email_id]
 

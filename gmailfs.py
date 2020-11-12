@@ -216,6 +216,7 @@ class GmailFS(Operations):
             subject = m.group(1)
             message_metadata = self.metadata_dict[subject]
             self.gmail_client.trash_message(message_metadata["id"])
+            del self.metadata_dict[subject]
         return 0
 
     def mkdir(self, path, mode):
