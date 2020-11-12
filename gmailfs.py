@@ -89,7 +89,7 @@ class GmailFS(Operations):
     # ==================
 
     def access(self, path, mode):
-        print("access")
+        # print("access")
         full_path = self._full_path(path)
         m = re.search(rf"^.*\/{self.client}\/inbox\/.*?([^\\]\/|$)", full_path)
         if m:
@@ -99,12 +99,12 @@ class GmailFS(Operations):
             raise FuseOSError(errno.EACCES)
 
     def chmod(self, path, mode):
-        print("chmod")
+        # print("chmod")
         full_path = self._full_path(path)
         return os.chmod(full_path, mode)
 
     def chown(self, path, uid, gid):
-        print("chown")
+        # print("chown")
         full_path = self._full_path(path)
         return os.chown(full_path, uid, gid)
 
@@ -154,7 +154,7 @@ class GmailFS(Operations):
         return st
 
     def readdir(self, path, fh):
-        print("readdir")
+        # print("readdir")
         if path == '/inbox':
             # self.metadata_dict, subject_list, _ = self.gmail_client.get_email_list()
             return ['.', '..'] + list(self.metadata_dict.keys())
@@ -196,7 +196,7 @@ class GmailFS(Operations):
             # At this point, we promise the raw and attachment must in cache folder
 
     def readlink(self, path):
-        print("readlink")
+        # print("readlink")
         pathname = os.readlink(self._full_path(path))
         if pathname.startswith("/"):
             # Path name is absolute, sanitize it.
@@ -205,11 +205,11 @@ class GmailFS(Operations):
             return pathname
 
     def mknod(self, path, mode, dev):
-        print("mknod")
+        # print("mknod")
         return os.mknod(self._full_path(path), mode, dev)
 
     def rmdir(self, path):
-        print("rmdir")
+        # print("rmdir")
         full_path = self._full_path(path)
         m = re.search(rf"^.*\/{self.client}\/inbox\/(.*)", full_path)
         if m:
@@ -220,11 +220,11 @@ class GmailFS(Operations):
         return 0
 
     def mkdir(self, path, mode):
-        print("mkdir")
+        # print("mkdir")
         return 0
 
     def statfs(self, path):
-        print("statfs")
+        # print("statfs")
         full_path = self._full_path(path)
         stv = os.statvfs(full_path)
         return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
@@ -233,7 +233,7 @@ class GmailFS(Operations):
                                                          'f_frsize', 'f_namemax'))
 
     def unlink(self, path):
-        print("unlink") # ignore all unlink
+        # print("unlink") # ignore all unlink
         return 0
         # return os.unlink(self._full_path(path))
 
@@ -241,21 +241,21 @@ class GmailFS(Operations):
         return os.symlink(target, self._full_path(name))
 
     def rename(self, old, new):
-        print("rename")
+        # print("rename")
         return os.rename(self._full_path(old), self._full_path(new))
 
     def link(self, target, name):
         return os.link(self._full_path(name), self._full_path(target))
 
     def utimens(self, path, times=None):
-        print("utimens")
+        # print("utimens")
         return os.utime(self._full_path(path), times)
 
     # File methods
     # ============
 
     def open(self, path, flags):
-        print("open")
+        # print("open")
         full_path = self._full_path(path)
 
         inbox_folder_path = None
@@ -280,34 +280,34 @@ class GmailFS(Operations):
         return fd
 
     def create(self, path, mode, fi=None):
-        print("create")
+        # print("create")
         full_path = self._full_path(path)
         return os.open(full_path, os.O_WRONLY | os.O_CREAT, mode)
     #  If fake file, update the length and offset.
     def read(self, path, length, offset, fh):
-        print("read")
+        # print("read")
         # set offset as start and length is the length
         os.lseek(fh, offset, os.SEEK_SET)
         ret = os.read(fh, length)
         return ret
 
     def write(self, path, buf, offset, fh):
-        print("write")
+        # print("write")
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, buf)
 
     def truncate(self, path, length, fh=None):
-        print("truncate")
+        # print("truncate")
         full_path = self._full_path(path)
         with open(full_path, 'r+') as f:
             f.truncate(length)
 
     def flush(self, path, fh):
-        print("flush")
+        # print("flush")
         return os.fsync(fh)
 
     def release(self, path, fh):
-        print("release")
+        # print("release")
         try:
             if path.startswith("/send"):
                 send_path = self._full_path(path)
@@ -333,7 +333,7 @@ class GmailFS(Operations):
         return os.close(fh)
 
     def fsync(self, path, fdatasync, fh):
-        print("fsync")
+        # print("fsync")
         return self.flush(path, fh)
 
 
