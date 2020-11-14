@@ -25,13 +25,15 @@ Various credential details will need to be noted and later added to a configurat
 
 Now we must give gmail permission to enable the API with our account.
 
-Complete Step 1 in this [tutorial](https://developers.google.com/gmail/api/quickstart/js) to create a new project and enable the Gmail API. Take note of the project name and ID. Place the created `credentials.json` file into the root of the gmailfs project directory.
+Complete Step 1 in this [tutorial](https://developers.google.com/gmail/api/quickstart/js) to create a new project and enable the Gmail API. Take note of the project name and ID.
 
 The [Google cloud console](https://console.cloud.google.com) is your place to add and modify features which will allow gmailfs to auto-update with your email contents.
 
 Complete the first portion of this guide, [Initial Cloud Pub/Sub Setup](https://developers.google.com/gmail/api/guides/push). Note the topic name and ID.
 
-Create a new `OAuth 2.0 Client ID` under the `API` section of the `Google Cloud Console`. Download the json credentials, saving the file as `project_key.json` in the root directory of the gmailfs project.
+Create a service account with a Pub/Sub Admin role under the `Credentials` section of the `APIs & Services` in Google Cloud console. Generate a key for this service account. Download the json credentials, saving the file as `project_key.json` in the root directory of the gmailfs project.
+
+In the same section, create a new OAuth client ID for a `Desktop Application`. Download the credentials, saving it as `credentials.json`, and place file into the root of the gmailfs project directory.
 
 #### Multiple Instances
 
