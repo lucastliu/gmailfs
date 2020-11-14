@@ -242,7 +242,6 @@ class GmailFS(Operations):
         return os.symlink(target, self._full_path(name))
 
     def rename(self, old, new):
-        # print("rename")
         return os.rename(self._full_path(old), self._full_path(new))
 
     def link(self, target, name):
@@ -293,7 +292,6 @@ class GmailFS(Operations):
         return ret
 
     def write(self, path, buf, offset, fh):
-        # print("write")
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, buf)
 
